@@ -173,9 +173,7 @@
   function limitForEntry(entry) {
     const start = timeToMinutes(entry);
     if (start === null) return null;
-    const day = new Date(`${state.data}T12:00:00`).getDay();
-    const isFriday = day === 5;
-    return start + (isFriday ? 9 * 60 : 10 * 60);
+    return start + (9 * 60) + 48;
   }
 
   function confirmJourneyLimit(index) {
@@ -194,7 +192,7 @@
       const limit = limitForEntry(journey.entry);
       if (limit === null || tripTime <= limit) continue;
       const excess = tripTime - limit;
-      const message = `${name} (${side}) registrou entrada às ${journey.entry} no Registro de Jornada.\n\nPelo limite da escala, a saída prevista é ${minutesToTime(limit)}.\nA viagem está marcada para ${row.horario}, excedendo ${excess} minuto(s).\n\nDeseja prosseguir mesmo assim?`;
+      const message = `${name} (${side}) registrou entrada às ${journey.entry} no Registro de Jornada.\n\nPela regra de 44h semanais, o limite de atuação é ${minutesToTime(limit)}.\nA viagem está marcada para ${row.horario}, excedendo ${excess} minuto(s).\n\nDeseja prosseguir mesmo assim?`;
       if (!confirm(message)) return false;
     }
     return true;
