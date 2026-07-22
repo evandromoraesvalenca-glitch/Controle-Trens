@@ -1,0 +1,1088 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controle Embarque Trens - Linha 6</title>
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-storage.js"></script>
+  <style>
+    :root {
+      --blue: #0b2344;
+      --orange: #f58220;
+      --bg: #f3f6fa;
+      --text: #172033;
+      --muted: #64748b;
+      --line: #dbe3ef;
+      --green: #107c56;
+      --red: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+    body, button, input, textarea, select { overflow-wrap: anywhere; }
+    header { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--line); }
+    .top { max-width: 1180px; margin: 0 auto; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+    .logo { height: 40px; width: 116px; object-fit: contain; }
+    .brand { flex: 1; min-width: 0; }
+    .brand span { display: block; color: var(--orange); font-size: 13px; font-weight: 800; text-transform: uppercase; }
+    .brand h1 { margin: 2px 0 0; color: var(--blue); font-size: clamp(20px, 3vw, 28px); }
+    .user { text-align: right; font-size: 13px; color: var(--muted); }
+    .user strong { display: block; color: var(--blue); font-size: 14px; }
+    main { max-width: 1180px; margin: 0 auto; padding: 22px 18px 40px; }
+    .grid { display: grid; gap: 14px; }
+    .trains { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+    .card, .panel, .check { background: white; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 32px rgba(11,35,68,.08); }
+    .card { min-height: 116px; padding: 18px; cursor: pointer; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .card:hover, .card.active { border-color: var(--orange); }
+    .card strong { color: var(--blue); font-size: 20px; }
+    .card small, .muted { color: var(--muted); font-weight: 700; }
+    .section-head { margin: 0 0 16px; }
+    .section-head p { margin: 0; color: var(--orange); font-size: 13px; font-weight: 800; text-transform: uppercase; }
+    .section-head h2 { margin: 4px 0 0; color: var(--blue); font-size: 28px; }
+    .panel { padding: 18px; margin-top: 18px; }
+    .summary { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+    .info { background: #f8fafc; border-radius: 8px; padding: 12px; }
+    .info span { display: block; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .info strong { display: block; margin-top: 4px; color: var(--blue); }
+    .tabs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0; }
+    button { border: 0; border-radius: 8px; min-height: 42px; padding: 0 14px; font-weight: 800; cursor: pointer; line-height: 1.15; }
+    .tab { white-space: nowrap; background: white; color: var(--blue); border: 1px solid var(--line); }
+    .tab.active { background: var(--blue); color: white; }
+    .primary { background: var(--orange); color: white; }
+    .secondary { background: var(--blue); color: white; }
+    .ghost { background: #e8eef7; color: var(--blue); }
+    .check { padding: 16px; margin-bottom: 12px; }
+    .check-top { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: start; }
+    .code { display: inline-block; background: var(--blue); color: white; border-radius: 4px; padding: 4px 8px; font-size: 13px; font-weight: 900; }
+    .cat { display: inline-block; margin-left: 6px; background: #eef2f7; color: var(--muted); border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+    .check h3 { margin: 12px 0 4px; color: var(--blue); font-size: 18px; }
+    .status { display: grid; grid-template-columns: repeat(3, 72px); gap: 8px; }
+    .status button { background: #eef2f7; color: #334155; }
+    .status button.ok.active { background: var(--green); color: white; }
+    .status button.nok.active { background: var(--red); color: white; }
+    .status button.na.active { background: var(--muted); color: white; }
+    textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-top: 12px; font: inherit; }
+    .footer-actions { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .main-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .main-tabs button { background: white; color: var(--blue); border: 1px solid var(--line); }
+    .main-tabs button.active { background: var(--blue); color: white; }
+    .sub-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 10px; margin-bottom: 12px; }
+    .sub-tabs button { flex: 0 0 auto; background: white; color: var(--blue); border: 1px solid var(--line); white-space: nowrap; }
+    .sub-tabs button.active { background: var(--blue); color: white; }
+    .module-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .module-card { min-height: 150px; padding: 22px; text-align: left; background: white; color: var(--blue); border: 1px solid var(--line); box-shadow: 0 12px 32px rgba(11,35,68,.08); }
+    .module-card strong { display: block; font-size: 24px; margin-bottom: 8px; }
+    .module-card span { color: var(--muted); font-weight: 800; }
+    .module-card.primary-module { background: var(--blue); color: white; }
+    .module-card.primary-module span { color: #dbeafe; }
+    .traffic-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .traffic-layout { display: grid; grid-template-columns: 320px 1fr; gap: 14px; align-items: start; }
+    .traffic-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: white; }
+    .traffic-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 13px; }
+    .traffic-table th, .traffic-table td { border: 1px solid var(--line); padding: 7px; vertical-align: top; }
+    .traffic-table th { position: sticky; top: 0; z-index: 1; background: #eef2f7; color: var(--blue); text-transform: uppercase; font-size: 11px; }
+    .traffic-table input, .traffic-table select, .traffic-table textarea { width: 100%; min-width: 88px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; font: inherit; background: white; }
+    .traffic-table textarea { min-height: 38px; margin: 0; }
+    .traffic-row-ok { background: #ecfdf5; }
+    .traffic-row-warn { background: #fffbeb; }
+    .traffic-row-danger { background: #fef2f2; }
+    .traffic-row-muted { background: #f1f5f9; color: #475569; }
+    .traffic-pill { display: inline-block; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 900; }
+    .traffic-pill.blue { background: #dbeafe; color: #1d4ed8; }
+    .traffic-pill.green { background: #dcfce7; color: #166534; }
+    .traffic-pill.yellow { background: #fef3c7; color: #92400e; }
+    .traffic-pill.red { background: #fee2e2; color: #991b1b; }
+    .traffic-pill.gray { background: #e2e8f0; color: #475569; }
+    .traffic-alerts { display: grid; gap: 8px; }
+    .traffic-alert { border-left: 4px solid var(--red); background: #fef2f2; padding: 10px; border-radius: 8px; font-weight: 800; }
+    .traffic-print-head { display: none; }
+    .access-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--blue); }
+    .access-card { width: min(520px, 100%); background: white; border-radius: 8px; padding: 24px; box-shadow: 0 24px 70px rgba(0,0,0,.25); }
+    .access-card h1 { color: var(--blue); margin: 4px 0 8px; }
+    .access-card .switch { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0; }
+    .access-card .switch button { background: #eef2f7; color: var(--blue); }
+    .access-card .switch button.active { background: var(--blue); color: white; }
+    .readonly-lock button:not(.tab):not(.main-tabs button):not(.sub-tabs button):not(#moduleChecklists):not(#moduleJourney):not(#moduleTrips) { pointer-events: none; opacity: .55; }
+    .readonly-lock input, .readonly-lock textarea, .readonly-lock select { pointer-events: none; background: #f8fafc !important; color: #475569; }
+    .readonly-lock .no-print button, .readonly-lock .primary, .readonly-lock .secondary, .readonly-lock .ghost { pointer-events: none; opacity: .55; }
+    .readonly-lock #historyTrain, .readonly-lock #panelTrain { pointer-events: auto; background: white !important; }
+    .metrics { grid-template-columns: repeat(5, 1fr); }
+    .metric { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
+    .metric span { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .metric strong { display: block; color: var(--blue); font-size: 30px; }
+    .metric.danger strong { color: var(--red); }
+    .modalback { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(15,23,42,.55); }
+    .modal { width: min(720px, 100%); background: white; border-radius: 8px; padding: 18px; box-shadow: 0 24px 70px rgba(11,35,68,.25); }
+    .formgrid { display: grid; grid-template-columns: 1fr 140px; gap: 12px; }
+    label span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; }
+    input { width: 100%; height: 44px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 0 12px; font: inherit; }
+    canvas { width: 100%; height: 170px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; touch-action: none; }
+    .hidden { display: none; }
+    @media (max-width: 760px) {
+      header { position: static; }
+      .top { padding: 12px; gap: 10px; }
+      .logo { width: 88px; height: 34px; }
+      .brand span { font-size: 11px; }
+      .brand h1 { font-size: 22px; }
+      main { padding: 14px 12px 28px; }
+      .user { display: none; }
+      .section-head { margin-bottom: 12px; }
+      .section-head h2 { font-size: 23px; }
+      .main-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 0 -12px 16px; padding: 0 12px 8px; scroll-snap-type: x mandatory; }
+      .main-tabs button { flex: 0 0 auto; min-width: 160px; white-space: nowrap; scroll-snap-align: start; }
+      .sub-tabs { margin: 0 -12px 12px; padding: 0 12px 8px; }
+      .module-grid { grid-template-columns: 1fr; }
+      .module-card { min-height: 104px; padding: 16px; }
+      .module-card strong { font-size: 21px; }
+      .traffic-layout { grid-template-columns: 1fr; }
+      .traffic-actions button { flex: 1 1 150px; }
+      .trains { grid-template-columns: 1fr; }
+      .card { min-height: 82px; padding: 14px; }
+      .panel { padding: 14px; margin-top: 12px; }
+      .check { padding: 14px; }
+      .check-top, .footer-actions { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .metric { padding: 12px; }
+      .metric strong { font-size: 26px; }
+      .status { grid-template-columns: repeat(3, 1fr); }
+      .status button { padding: 0 8px; min-width: 0; }
+      .formgrid { grid-template-columns: 1fr; }
+      .footer-actions { position: static; }
+      .modalback { align-items: flex-start; overflow: auto; padding: 12px; }
+      .modal { padding: 14px; }
+      canvas { height: 150px; }
+    }
+    @media (max-width: 420px) {
+      .brand h1 { font-size: 20px; }
+      .main-tabs button { min-width: 150px; font-size: 13px; }
+      .metrics { grid-template-columns: 1fr; }
+      .status { grid-template-columns: 1fr; }
+    }
+    @media print {
+      header, .main-tabs, .sub-tabs, .traffic-actions, .no-print { display: none !important; }
+      body { background: white; }
+      main { max-width: none; padding: 0; }
+      .panel, .check { box-shadow: none; border-color: #777; page-break-inside: avoid; }
+      .traffic-print-head { display: block; text-align: center; margin-bottom: 10px; }
+      .traffic-table-wrap { overflow: visible; border: 0; }
+      .traffic-table { min-width: 0; font-size: 9px; }
+      .traffic-table th, .traffic-table td { padding: 3px; }
+      input, select, textarea { border: 0 !important; padding: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="accessScreen" class="access-screen hidden"></div>
+  <header>
+    <div class="top">
+      <img class="logo" src="public-sge/logo-linha6uni.png" alt="Linha 6" />
+      <div class="brand">
+        <span>Controle</span>
+        <h1>Embarque Trens</h1>
+      </div>
+      <div class="user"><strong>Supervisor Operacional</strong>RE 000001</div>
+    </div>
+  </header>
+
+  <main>
+    <nav class="main-tabs">
+      <button id="moduleChecklists" onclick="openChecklistArea()">Controle checklists</button>
+      <button id="moduleJourney" onclick="openModule('journey')">Registro de Jornada</button>
+      <button id="moduleTrips" onclick="openModule('trips')">Embarques e Viagens</button>
+    </nav>
+
+    <section id="home">
+      <div class="section-head">
+        <p>Módulos operacionais</p>
+        <h2>Escolha uma área</h2>
+      </div>
+      <div class="panel">
+        <p class="muted">Use os três botões acima para acessar cada área operacional.</p>
+      </div>
+    </section>
+
+    <nav id="checklistNav" class="sub-tabs hidden">
+      <button id="tabChecklist" class="active" onclick="openMainTab('checklist')">Checklist</button>
+      <button id="tabPanel" onclick="openMainTab('panel')">Painel</button>
+      <button id="tabHistory" onclick="openMainTab('history')">Checklists feitos</button>
+      <button id="tabAdmin" onclick="openAdmin()">Administração</button>
+    </nav>
+
+    <section id="select" class="hidden">
+      <div class="section-head">
+        <p>Checklist de trens</p>
+        <h2>Escolha o trem</h2>
+      </div>
+      <div class="grid trains" id="trainGrid"></div>
+    </section>
+
+    <section id="panel" class="hidden">
+      <div class="section-head">
+        <p>Painel de checklists</p>
+        <h2>Visualização por trem</h2>
+      </div>
+      <div class="panel">
+        <div class="formgrid">
+          <label><span>Selecionar trem</span><select id="panelTrain" onchange="renderChecklistPanel()" style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"></select></label>
+          <label><span>Visualização</span><button type="button" id="failureToggle" class="secondary" style="width:100%" onclick="toggleFailures()">Visualizar falhas</button></label>
+        </div>
+      </div>
+      <div class="grid metrics">
+        <div class="metric"><span>Total</span><strong id="pTotal">0</strong></div>
+        <div class="metric"><span>Realizados</span><strong id="pOk">0</strong></div>
+        <div class="metric danger"><span>Falhas/NOK</span><strong id="pNok">0</strong></div>
+        <div class="metric"><span>N/A</span><strong id="pNa">0</strong></div>
+        <div class="metric"><span>Pendentes</span><strong id="pPending">0</strong></div>
+      </div>
+      <div class="panel">
+        <h3 style="color:var(--blue);margin-top:0" id="panelTitle">Itens do checklist</h3>
+        <div id="panelItems"></div>
+      </div>
+    </section>
+
+    <section id="admin" class="hidden">
+      <div class="section-head">
+        <p>Área administrativa</p>
+        <h2>Painel de administração</h2>
+      </div>
+      <form id="adminLoginPanel" class="panel" onsubmit="loginAdmin(event)">
+        <h3 style="color:var(--blue);margin-top:0">Login administrativo</h3>
+        <p class="muted">Informe a senha de administração para alterar trens e colaboradores.</p>
+        <label><span>Senha</span><input id="adminPasswordInput" type="password" placeholder="Senha de administração"></label>
+        <button class="primary" style="width:100%;margin-top:12px">Entrar na administração</button>
+      </form>
+      <div id="adminContent" class="grid hidden" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+        <form class="panel" onsubmit="addAdminTrain(event)">
+          <h3 style="color:var(--blue);margin-top:0">Trens</h3>
+          <p class="muted">Altere os números existentes ou inclua novos trens. As mudanças alimentam Checklist e Painel.</p>
+          <label><span>Número do trem</span><input id="adminTrainNumber" placeholder="Ex.: 615"></label>
+          <button class="primary" style="width:100%;margin-top:12px">Incluir trem</button>
+          <div id="adminTrainList" class="grid" style="margin-top:12px"></div>
+        </form>
+        <form class="panel" onsubmit="addAdminCollaborator(event)">
+          <h3 style="color:var(--blue);margin-top:0">Colaboradores AAE</h3>
+          <p class="muted">Inclua ou edite os colaboradores que aparecem no Registro de Jornada.</p>
+          <label><span>Nome completo</span><input id="adminCollaboratorName" placeholder="Nome do colaborador"></label>
+          <button class="primary" style="width:100%;margin-top:12px">Incluir colaborador</button>
+          <div id="adminCollaboratorList" class="grid" style="margin-top:12px"></div>
+        </form>
+        <form class="panel" onsubmit="addAdminChecklistItem(event)">
+          <h3 style="color:var(--blue);margin-top:0">Checklist de inserção</h3>
+          <p class="muted">Inclua ou edite os itens que aparecem no checklist dos trens.</p>
+          <div class="formgrid">
+            <label><span>Código</span><input id="adminItemCode" placeholder="Ex.: INT16"></label>
+            <label><span>Local</span><input id="adminItemCategory" placeholder="Interno, Cabine ou Externo"></label>
+            <label style="grid-column:1/-1"><span>Item</span><input id="adminItemDescription" placeholder="Descrição do item"></label>
+            <label style="grid-column:1/-1"><span>Resolução</span><input id="adminItemResolution" placeholder="Ação esperada / orientação"></label>
+          </div>
+          <button class="primary" style="width:100%;margin-top:12px">Incluir item no checklist</button>
+          <div id="adminChecklistList" class="grid" style="margin-top:12px"></div>
+        </form>
+        <div class="panel">
+          <h3 style="color:var(--blue);margin-top:0">Segurança</h3>
+          <label><span>Nova senha administrativa</span><input id="newAdminPassword" type="password" placeholder="Opcional"></label>
+          <button type="button" class="secondary" style="width:100%;margin-top:12px" onclick="changeAdminPassword()">Alterar senha</button>
+          <button type="button" class="ghost" style="width:100%;margin-top:12px" onclick="logoutAdmin()">Sair da administração</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="history" class="hidden">
+      <div class="section-head">
+        <p>Checklists feitos</p>
+        <h2>Histórico com responsável e assinatura</h2>
+      </div>
+      <div class="panel">
+        <div class="formgrid">
+          <label><span>Filtrar por trem</span><select id="historyTrain" onchange="renderChecklistHistory()" style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"></select></label>
+          <label><span>Modo</span><button type="button" class="secondary" style="width:100%" onclick="renderChecklistHistory()">Atualizar histórico</button></label>
+        </div>
+      </div>
+      <div id="historyList" class="grid"></div>
+      <div id="historyDetail" class="hidden"></div>
+    </section>
+
+    <section id="journey" class="hidden">
+      <div class="section-head">
+        <p>Registro de jornada</p>
+        <h2>Entrada, almoço e saída</h2>
+      </div>
+      <form class="panel" onsubmit="saveJourney(event)">
+        <div class="formgrid">
+          <label style="grid-column:1/-1"><span>Nome do AAE</span><select id="journeyName" required style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"></select></label>
+          <label><span>Local</span><select id="journeyPlace" style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"><option>SMA</option><option>PMG</option><option>JOP</option><option>PDZ</option></select></label>
+          <label><span>Data</span><input id="journeyDate" type="date" required></label>
+          <label><span>Campo</span><select id="journeyField" style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"><option value="entry">Entrada</option><option value="lunch">Almoço</option><option value="exit">Saída</option></select></label>
+          <label><span>Horário</span><input id="journeyTime" type="time"></label>
+        </div>
+        <div class="footer-actions" style="position:static;background:white">
+          <button type="button" class="ghost" onclick="journeyField.value='entry'; setTime('journeyTime')">Entrada agora</button>
+          <button type="button" class="ghost" onclick="journeyField.value='lunch'; setTime('journeyTime')">Almoço agora</button>
+          <button type="button" class="ghost" onclick="journeyField.value='exit'; setTime('journeyTime')">Saída agora</button>
+        </div>
+        <button class="primary" style="width:100%;margin-top:12px">Salvar / atualizar ficha</button>
+      </form>
+      <div class="panel">
+        <h3 style="color:var(--blue);margin-top:0">Painel de colaboradores</h3>
+        <div id="journeyList" class="grid"></div>
+      </div>
+    </section>
+
+    <section id="trips" class="hidden">
+      <div class="section-head">
+        <p>Embarques e viagens</p>
+        <h2>Controle de Viagens - Tráfego</h2>
+      </div>
+      <div id="trafficModule"></div>
+    </section>
+
+    <section id="inspection" class="hidden">
+      <div class="section-head">
+        <p>Inspecao embarcada</p>
+        <h2 id="title">Trem</h2>
+      </div>
+      <div class="panel">
+        <div class="grid summary">
+          <div class="info"><span>Composicao</span><strong id="composition"></strong></div>
+          <div class="info"><span>Data</span><strong id="date"></strong></div>
+          <div class="info"><span>Inicio</span><strong id="time"></strong></div>
+          <div class="info"><span>Turno</span><strong>Manha</strong></div>
+          <div class="info"><span>Local</span><strong>Estacao / Patio</strong></div>
+        </div>
+      </div>
+      <div class="tabs" id="tabs"></div>
+      <div id="items"></div>
+      <div class="footer-actions">
+        <button class="ghost" onclick="saveDraft()">Salvar parcial</button>
+        <button class="primary" onclick="showSummary()">Ver resumo</button>
+        <button class="secondary" onclick="showSummary()">Finalizar checklist</button>
+      </div>
+    </section>
+
+    <section id="summary" class="hidden">
+      <div class="section-head">
+        <p>Resumo</p>
+        <h2>Resultado do checklist</h2>
+      </div>
+      <div class="grid metrics">
+        <div class="metric"><span>Total</span><strong id="mTotal">0</strong></div>
+        <div class="metric"><span>OK</span><strong id="mOk">0</strong></div>
+        <div class="metric danger"><span>NOK</span><strong id="mNok">0</strong></div>
+        <div class="metric"><span>N/A</span><strong id="mNa">0</strong></div>
+        <div class="metric"><span>Pendentes</span><strong id="mPending">0</strong></div>
+      </div>
+      <div class="panel" id="nokList"></div>
+      <div class="footer-actions">
+        <button class="ghost" onclick="backToChecklist()">Voltar e corrigir</button>
+        <button class="primary" onclick="window.print()">Imprimir</button>
+        <button class="secondary" onclick="openConfirm('finalizar')">Finalizar</button>
+      </div>
+    </section>
+
+    <section id="confirmModal" class="modalback hidden" onclick="closeConfirm()">
+      <form class="modal" onclick="event.stopPropagation()" onsubmit="confirmSave(event)">
+        <div class="section-head">
+          <p id="confirmMode">Salvar checklist</p>
+          <h2>Confirmar preenchimento</h2>
+        </div>
+        <div class="formgrid">
+          <label><span>Nome de quem está preenchendo</span><input id="fillName" required value="Supervisor Operacional"></label>
+          <label><span>RE</span><input id="fillRe" required value="000001"></label>
+          <label style="grid-column:1/-1"><span>Cargo / função</span><input id="fillRole" placeholder="Ex.: Operador, supervisor, LAS"></label>
+        </div>
+        <div style="margin-top:14px">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px">
+            <strong style="color:var(--blue)">Assinatura com o dedo</strong>
+            <button type="button" class="ghost" onclick="clearSignature()">Limpar</button>
+          </div>
+          <canvas id="signature" width="900" height="260"></canvas>
+        </div>
+        <p id="confirmError" class="hidden" style="background:#fee2e2;color:#991b1b;padding:10px;border-radius:8px;font-weight:800"></p>
+        <div class="footer-actions" style="position:static;background:white">
+          <button type="button" class="ghost" onclick="closeConfirm()">Cancelar</button>
+          <button class="primary">Confirmar e salvar</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    let trains = JSON.parse(localStorage.getItem("admin_trains") || "null") || [
+      ["trem-611", "Trem 611", "611", "1 trem"],
+      ["trem-612", "Trem 612", "612", "1 trem"],
+      ["trem-613", "Trem 613", "613", "1 trem"],
+      ["trem-614", "Trem 614", "614", "1 trem"]
+    ];
+    let items = JSON.parse(localStorage.getItem("admin_checklist_items") || "null") || [
+      ["INT01", "Interno", "Iluminacao dos Carros", "Resetar / Subir os disjuntores"],
+      ["INT02", "Interno", "Funcionamento do Ar Condicionado", "Resetar / Subir os disjuntores"],
+      ["INT03", "Interno", "Verificacao da Limpeza", "Caso necessario, comunicar o CCO para acionar a equipe de limpeza"],
+      ["INT04", "Interno", "Vistoria das Cameras (PAPIS)", "Resetar / Subir os disjuntores de Visores"],
+      ["INT05", "Interno", "Verificacao do Sistema de Som (PAPIS)", "Resetar / Subir os disjuntores de Comunicacao"],
+      ["INT06", "Interno", "Verificacao da funcionalidade do TCMS", "Resetar / Subir os disjuntores de Visores"],
+      ["INT07", "Interno", "Verificacao do funcionamento dos Mapas de Linha", "Resetar / Subir os disjuntores de Comunicacao"],
+      ["INT08", "Interno", "Verificacao de Sancas", "Fechar sancas / Caso sem sucesso, comunicar CCO para acionar MRO"],
+      ["INT09", "Interno", "Acrilicos dos Dispositivos de Emergencia e Extintores", "Se tiver sem acrilico, comunicar CCO para acionar MRO"],
+      ["INT10", "Interno", "Teste de Radio e Intercom", "Resetar / Subir os disjuntores de Radio"],
+      ["INT11", "Interno", "Armarios Fechados e Travados", "Fechar Armarios / Caso sem sucesso, comunicar CCO para acionar MRO"],
+      ["INT12", "Interno", "Condicoes dos Pega-Maos", "Caso solto ou avariado, comunicar CCO para acionar MRO"],
+      ["INT13", "Interno", "Verificacao da Integridade dos Gangway", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["INT14", "Interno", "Verificacao da Isolacao Cabine / Salao (Se houver)", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["INT15", "Interno", "Verificacao da Integridade Fisica (Vandalismo)", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["CAB01", "Cabine", "Integridade dos lacres e protecoes das derivacoes", "Caso sem os lacres, verificar se nao ha nada em bypass"],
+      ["CAB02", "Cabine", "Verificar se existem dispositivos em bypass", "Reestabelecer e verificar se foi normalizado e ha condicoes de circulacao"],
+      ["CAB03", "Cabine", "Testes de Movimentacao (Frente / Re / Reboque)", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["CAB04", "Cabine", "Testes de Dispositivos de Emergencia (Botao Seta / Manipulo)", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["CAB05", "Cabine", "Verificacao e Realizacao do Teste obrigatorio de freios", "Confirmar realizacao do teste obrigatorio de freios"],
+      ["CAB06", "Cabine", "Teste de lampadas do painel", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["CAB07", "Cabine", "Testes de aberturas e fechamentos de portas (2 ciclos)", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["EXT01", "Externo", "Tampas Externas / Subestrado", "Fechar e Travar / Sem sucesso, comunicar CCO para acionar MRO"],
+      ["EXT02", "Externo", "Calcos (Se houver)", "Retirar calcos"],
+      ["EXT03", "Externo", "Verificacao de Torneiras e Posicionamento", "Normalizar torneiras e verificar se ha condicoes operacionais"],
+      ["EXT04", "Externo", "Funcionamento das Luzes de posicao", "Tirar / Pegar comando e verificar funcionamento das luzes"],
+      ["EXT05", "Externo", "Verificacao de Numeracao do trem (Laterais e Frontal)", "Caso avariado, comunicar CCO para acionar MRO"],
+      ["EXT06", "Externo", "Integridade Fisica, funcionalidade das portas e Visual do Trem", "Vandalismo ou anormalidades, comunicar CCO para acionar MRO"]
+    ];
+    let selectedTrain = trains[0];
+    let activeCategory = items[0][1];
+    const answers = {};
+    let pendingAction = "salvar";
+    let signatureStarted = false;
+    let showPanelFailures = false;
+    let adminLoggedIn = sessionStorage.getItem("admin_logged_in") === "true";
+    let colaboradoresAAE = JSON.parse(localStorage.getItem("admin_colaboradores") || "null") || [
+      "Alberto Lobo Pardinho",
+      "Andrea Karla Monteiro",
+      "Diego Santos de Assis",
+      "Johnatan Lima Silva",
+      "Karina Justino Medeiros Ventura",
+      "Marcos Felipe Vieira Rodrigues",
+      "Nathalia Moura Rodriguez Nobre",
+      "Rodrigo Lopes Barbosa Leste",
+      "Suzana de Paula Faria Máximo",
+      "Viviane Dolato Silveira"
+    ];
+    const journeys = JSON.parse(localStorage.getItem("journey_preview") || "[]");
+    const checklistHistory = JSON.parse(localStorage.getItem("checklist_trens_history") || "[]");
+
+    function today() {
+      return new Date().toLocaleDateString("pt-BR");
+    }
+    function now() {
+      return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    }
+    function renderTrains() {
+      trainGrid.innerHTML = trains.map((train) => `
+        <button class="card" onclick="start('${train[0]}')">
+          <span><strong>${train[1]}</strong></span>
+          <strong style="color:var(--orange)">›</strong>
+        </button>
+      `).join("");
+    }
+    function hideOperationalSections() {
+      ["home", "select", "panel", "admin", "history", "journey", "trips", "inspection", "summary"].forEach((id) => {
+        document.getElementById(id).classList.add("hidden");
+      });
+    }
+    function setModuleActive(module) {
+      document.getElementById("moduleChecklists").classList.toggle("active", module === "checklists");
+      document.getElementById("moduleJourney").classList.toggle("active", module === "journey");
+      document.getElementById("moduleTrips").classList.toggle("active", module === "trips");
+    }
+    function openModule(module) {
+      hideOperationalSections();
+      document.getElementById("checklistNav").classList.add("hidden");
+      if (module === "journey") {
+        setModuleActive("journey");
+        document.getElementById("journey").classList.remove("hidden");
+        renderJourneys();
+        return;
+      }
+      if (module === "trips") {
+        setModuleActive("trips");
+        document.getElementById("trips").classList.remove("hidden");
+        if (window.SimpleTripsUI) window.SimpleTripsUI.render();
+        return;
+      }
+      setModuleActive("");
+      document.getElementById("home").classList.remove("hidden");
+    }
+    function openChecklistArea() {
+      openMainTab("checklist");
+    }
+    function openMainTab(tab) {
+      const homeSection = document.getElementById("home");
+      const selectSection = document.getElementById("select");
+      const panelSection = document.getElementById("panel");
+      const adminSection = document.getElementById("admin");
+      const historySection = document.getElementById("history");
+      const journeySection = document.getElementById("journey");
+      const tripsSection = document.getElementById("trips");
+      const inspectionSection = document.getElementById("inspection");
+      const summarySection = document.getElementById("summary");
+      const checklistNavSection = document.getElementById("checklistNav");
+      const checklistTab = document.getElementById("tabChecklist");
+      const panelTab = document.getElementById("tabPanel");
+      const historyTab = document.getElementById("tabHistory");
+      const adminTab = document.getElementById("tabAdmin");
+      const isPanel = tab === 'panel';
+      const isAdmin = tab === 'admin';
+      const isHistory = tab === 'history';
+      setModuleActive("checklists");
+      checklistNavSection.classList.remove("hidden");
+      checklistTab.classList.toggle('active', !isPanel && !isAdmin && !isHistory);
+      panelTab.classList.toggle('active', isPanel);
+      historyTab.classList.toggle('active', isHistory);
+      adminTab.classList.toggle('active', isAdmin);
+      homeSection.classList.add('hidden');
+      journeySection.classList.add('hidden');
+      tripsSection.classList.add('hidden');
+      panelSection.classList.toggle('hidden', !isPanel);
+      historySection.classList.toggle('hidden', !isHistory);
+      adminSection.classList.toggle('hidden', !isAdmin);
+      selectSection.classList.toggle('hidden', isPanel || isAdmin || isHistory);
+      inspectionSection.classList.add('hidden');
+      summarySection.classList.add('hidden');
+      if (isPanel) renderChecklistPanel();
+      if (isHistory) renderChecklistHistory();
+      if (isAdmin) renderAdmin();
+    }
+    function openAdmin() {
+      if (window.AccessControl?.canAdmin?.()) {
+        adminLoggedIn = true;
+        sessionStorage.setItem("admin_logged_in", "true");
+      }
+      openMainTab("admin");
+    }
+    function loginAdmin(event) {
+      event.preventDefault();
+      const password = localStorage.getItem("admin_password") || "admin";
+      if (adminPasswordInput.value !== password) {
+        alert("Senha administrativa incorreta.");
+        return;
+      }
+      adminLoggedIn = true;
+      sessionStorage.setItem("admin_logged_in", "true");
+      adminPasswordInput.value = "";
+      renderAdmin();
+    }
+    function logoutAdmin() {
+      adminLoggedIn = false;
+      sessionStorage.removeItem("admin_logged_in");
+      renderAdmin();
+    }
+    function changeAdminPassword() {
+      const next = newAdminPassword.value.trim();
+      if (!next) {
+        alert("Informe uma nova senha.");
+        return;
+      }
+      localStorage.setItem("admin_password", next);
+      newAdminPassword.value = "";
+      alert("Senha administrativa alterada.");
+    }
+    function start(id) {
+      selectedTrain = trains.find((train) => train[0] === id);
+      title.textContent = selectedTrain[1];
+      composition.textContent = selectedTrain[2];
+      date.textContent = today();
+      time.textContent = now();
+      document.getElementById("select").classList.add("hidden");
+      document.getElementById("summary").classList.add("hidden");
+      document.getElementById("inspection").classList.remove("hidden");
+      renderTabs();
+      renderItems();
+    }
+    function renderTabs() {
+      const cats = [...new Set(items.map((item) => item[1]))];
+      tabs.innerHTML = cats.map((cat) => `<button class="tab ${cat === activeCategory ? "active" : ""}" onclick="setCategory('${cat}')">${cat}</button>`).join("");
+    }
+    function setCategory(cat) {
+      activeCategory = cat;
+      renderTabs();
+      renderItems();
+    }
+    function renderItems() {
+      itemsContainer = document.getElementById("items");
+      itemsContainer.innerHTML = items.filter((item) => item[1] === activeCategory).map((item) => {
+        const status = answers[item[0]]?.status || "";
+        const obs = answers[item[0]]?.obs || "";
+        return `
+          <article class="check">
+            <div class="check-top">
+              <div>
+                <span class="code">${item[0]}</span><span class="cat">${item[1]}</span>
+                <h3>${item[2]}</h3>
+                <p class="muted">${item[3]}</p>
+              </div>
+              <div class="status">
+                <button class="ok ${status === "OK" ? "active" : ""}" onclick="answer('${item[0]}','OK')">Realizado</button>
+                <button class="nok ${status === "NOK" ? "active" : ""}" onclick="answer('${item[0]}','NOK')">Nao</button>
+                <button class="na ${status === "NA" ? "active" : ""}" onclick="answer('${item[0]}','NA')">N/A</button>
+              </div>
+            </div>
+            <textarea placeholder="Registre detalhes quando necessario" oninput="note('${item[0]}', this.value)">${obs}</textarea>
+          </article>
+        `;
+      }).join("");
+    }
+    function answer(code, status) {
+      answers[code] = { ...(answers[code] || {}), status };
+      renderItems();
+    }
+    function note(code, obs) {
+      answers[code] = { ...(answers[code] || {}), obs };
+    }
+    function saveDraft() {
+      openConfirm('salvar');
+    }
+    function openConfirm(action) {
+      pendingAction = action;
+      confirmMode.textContent = action === 'finalizar' ? 'Finalizar checklist' : 'Salvar checklist';
+      confirmError.classList.add('hidden');
+      confirmModal.classList.remove('hidden');
+      prepareSignature();
+    }
+    function closeConfirm() {
+      confirmModal.classList.add('hidden');
+    }
+    function confirmSave(event) {
+      event.preventDefault();
+      if (!signatureStarted) {
+        confirmError.textContent = 'Assine no campo indicado antes de salvar.';
+        confirmError.classList.remove('hidden');
+        return;
+      }
+      const signatureData = signature.toDataURL("image/png");
+      const record = {
+        id: `${Date.now()}-${selectedTrain[0]}`,
+        selectedTrain,
+        answers: JSON.parse(JSON.stringify(answers)),
+        status: pendingAction === "finalizar" ? "Finalizado" : "Salvo",
+        date: today(),
+        time: now(),
+        filledBy: fillName.value.trim(),
+        re: fillRe.value.trim(),
+        role: fillRole.value.trim(),
+        signature: signatureData
+      };
+      checklistHistory.unshift(record);
+      localStorage.setItem("checklist_trens_preview", JSON.stringify(record));
+      localStorage.setItem("checklist_trens_history", JSON.stringify(checklistHistory));
+      closeConfirm();
+      renderChecklistPanel();
+      renderChecklistHistory();
+      alert(pendingAction === 'finalizar' ? 'Checklist finalizado com assinatura nesta previa HTML.' : 'Checklist salvo com assinatura nesta previa HTML.');
+    }
+    function showSummary() {
+      const ok = items.filter((item) => answers[item[0]]?.status === "OK").length;
+      const nok = items.filter((item) => answers[item[0]]?.status === "NOK").length;
+      const na = items.filter((item) => answers[item[0]]?.status === "NA").length;
+      const pending = items.length - ok - nok - na;
+      mTotal.textContent = items.length;
+      mOk.textContent = ok;
+      mNok.textContent = nok;
+      mNa.textContent = na;
+      mPending.textContent = pending;
+      const nokItems = items.filter((item) => answers[item[0]]?.status === "NOK");
+      nokList.innerHTML = `<h3 style="color:var(--blue);margin-top:0">Itens NOK</h3>` + (nokItems.length
+        ? nokItems.map((item) => `<p><strong>${item[0]} - ${item[2]}</strong><br><span class="muted">${answers[item[0]]?.obs || "Sem observacao"}</span></p>`).join("")
+        : `<p class="muted">Nenhum item NOK registrado.</p>`);
+      document.getElementById("inspection").classList.add("hidden");
+      document.getElementById("summary").classList.remove("hidden");
+    }
+    function backToChecklist() {
+      document.getElementById("summary").classList.add("hidden");
+      document.getElementById("inspection").classList.remove("hidden");
+    }
+    function prepareSignature() {
+      const canvas = document.getElementById('signature');
+      const ctx = canvas.getContext('2d');
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#0b2344';
+      if (!signatureStarted) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      function pos(ev) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: (ev.clientX - rect.left) / rect.width * canvas.width, y: (ev.clientY - rect.top) / rect.height * canvas.height };
+      }
+      canvas.onpointerdown = (ev) => {
+        signatureStarted = true;
+        canvas.setPointerCapture(ev.pointerId);
+        const p = pos(ev);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      };
+      canvas.onpointermove = (ev) => {
+        if (ev.buttons !== 1) return;
+        const p = pos(ev);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      };
+    }
+    function clearSignature() {
+      const canvas = document.getElementById('signature');
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      signatureStarted = false;
+    }
+    function setTime(id) {
+      document.getElementById(id).value = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+    function saveJourney(event) {
+      event.preventDefault();
+      const key = `${journeyName.value.trim().toLowerCase()}|${journeyPlace.value}|${journeyDate.value}`;
+      const existing = journeys.find((item) => item.key === key);
+      const next = {
+        key,
+        name: journeyName.value,
+        place: journeyPlace.value,
+        date: journeyDate.value,
+        entry: journeyField.value === "entry" ? journeyTime.value : existing?.entry || "",
+        lunch: journeyField.value === "lunch" ? journeyTime.value : existing?.lunch || "",
+        exit: journeyField.value === "exit" ? journeyTime.value : existing?.exit || ""
+      };
+      const index = journeys.findIndex((item) => item.key === key);
+      if (index >= 0) journeys.splice(index, 1, next);
+      else journeys.unshift(next);
+      localStorage.setItem("journey_preview", JSON.stringify(journeys));
+      journeyTime.value = "";
+      renderJourneys();
+    }
+    function renderJourneys() {
+      const panel = colaboradoresAAE.map((name) => {
+        const key = `${name.trim().toLowerCase()}|${journeyPlace.value}|${journeyDate.value}`;
+        return journeys.find((item) => item.key === key) || { key, name, place: journeyPlace.value, date: journeyDate.value, entry: "", lunch: "", exit: "" };
+      });
+      journeyList.innerHTML = panel.map((item) => `
+        <article class="check">
+          <strong style="color:var(--blue)">${item.name} - ${item.place}</strong>
+          <p class="muted">${item.date || "--"}</p>
+          <div class="formgrid">
+            <label><span>Entrada</span><input type="time" value="${item.entry || ""}" onchange="updateJourney('${item.key}','entry',this.value)"></label>
+            <label><span>Almoço</span><input type="time" value="${item.lunch || ""}" onchange="updateJourney('${item.key}','lunch',this.value)"></label>
+            <label><span>Saída</span><input type="time" value="${item.exit || ""}" onchange="updateJourney('${item.key}','exit',this.value)"></label>
+          </div>
+        </article>
+      `).join("");
+    }
+    function toggleFailures() {
+      showPanelFailures = !showPanelFailures;
+      failureToggle.textContent = showPanelFailures ? "Mostrando falhas" : "Visualizar falhas";
+      failureToggle.className = showPanelFailures ? "primary" : "secondary";
+      failureToggle.style.width = "100%";
+      renderChecklistPanel();
+    }
+    function renderChecklistPanel() {
+      const trainId = panelTrain.value || trains[0][0];
+      const train = trains.find((item) => item[0] === trainId);
+      const stored = checklistHistory.find((record) => record.selectedTrain && record.selectedTrain[0] === trainId) || JSON.parse(localStorage.getItem("checklist_trens_preview") || "null");
+      const sourceAnswers = stored && stored.selectedTrain && stored.selectedTrain[0] === trainId ? stored.answers || {} : {};
+      const rows = items.map((item) => ({ item, answer: sourceAnswers[item[0]] || {} }));
+      const failures = rows.filter((row) => row.answer.status === "NOK");
+      const visible = showPanelFailures ? failures : rows;
+      pTotal.textContent = items.length;
+      pOk.textContent = rows.filter((row) => row.answer.status === "OK").length;
+      pNok.textContent = failures.length;
+      pNa.textContent = rows.filter((row) => row.answer.status === "NA").length;
+      pPending.textContent = rows.filter((row) => !row.answer.status).length;
+      panelTitle.textContent = `${train ? train[1] : "Trem"} - ${showPanelFailures ? "falhas sinalizadas" : "todos os itens"}`;
+      panelItems.innerHTML = visible.length ? visible.map(({ item, answer }) => {
+        const failure = answer.status === "NOK";
+        const label = answer.status === "OK" ? "Realizado" : answer.status === "NOK" ? "NOK" : answer.status === "NA" ? "N/A" : "Pendente";
+        return `
+          <article class="check" style="${failure ? "border-color:#fecaca;background:#fef2f2" : ""}">
+            <div class="check-top">
+              <div>
+                <span class="code">${item[0]}</span><span class="cat">${item[1]}</span>
+                <h3>${item[2]}</h3>
+                <p class="muted">${item[3]}</p>
+                ${answer.obs ? `<p style="font-weight:700;color:${failure ? "#991b1b" : "var(--muted)"}">Obs.: ${answer.obs}</p>` : ""}
+              </div>
+              <strong style="color:${failure ? "#b91c1c" : "var(--blue)"}">${label}</strong>
+            </div>
+          </article>
+        `;
+      }).join("") : '<p class="muted">Nenhuma falha/NOK sinalizada neste checklist.</p>';
+    }
+    function renderChecklistHistory() {
+      const trainId = historyTrain.value || "";
+      const list = trainId ? checklistHistory.filter((record) => record.selectedTrain && record.selectedTrain[0] === trainId) : checklistHistory;
+      historyList.innerHTML = list.length ? list.map((record) => {
+        const rows = items.map((item) => ({ item, answer: record.answers?.[item[0]] || {} }));
+        const failures = rows.filter((row) => row.answer.status === "NOK");
+        const ok = rows.filter((row) => row.answer.status === "OK").length;
+        const na = rows.filter((row) => row.answer.status === "NA").length;
+        const pending = rows.filter((row) => !row.answer.status).length;
+        return `
+          <article class="panel">
+            <div class="check-top">
+              <div>
+                <h3 style="color:var(--blue);margin:0">${record.selectedTrain?.[1] || "Trem"}</h3>
+                <p class="muted">${record.date || "--"} às ${record.time || "--"} | ${record.status || "Salvo"}</p>
+                <p><strong>Feito por:</strong> ${record.filledBy || "--"} | <strong>RE:</strong> ${record.re || "--"} | <strong>Função:</strong> ${record.role || "--"}</p>
+              </div>
+              <div style="text-align:right;font-weight:900;color:var(--blue)">
+                OK ${ok}<br>NOK ${failures.length}<br>N/A ${na}<br>Pend. ${pending}
+              </div>
+            </div>
+            <div style="margin-top:12px">
+              <h4 style="color:var(--blue);margin:0 0 8px">Falhas sinalizadas</h4>
+              ${failures.length ? failures.map(({ item, answer }) => `<p style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px"><strong>${item[0]} - ${item[2]}</strong><br><span class="muted">${answer.obs || "Sem observação"}</span></p>`).join("") : '<p class="muted">Nenhuma falha/NOK sinalizada.</p>'}
+            </div>
+            <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+              <strong style="color:var(--blue)">Assinatura</strong>
+              ${record.signature ? `<img src="${record.signature}" alt="Assinatura" style="display:block;margin-top:8px;max-width:320px;width:100%;height:110px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:white">` : '<p class="muted">Sem assinatura registrada.</p>'}
+            </div>
+          </article>
+        `;
+      }).join("") : '<div class="panel"><p class="muted">Nenhum checklist salvo ainda.</p></div>';
+    }
+    function saveAdminConfig() {
+      localStorage.setItem("admin_trains", JSON.stringify(trains));
+      localStorage.setItem("admin_colaboradores", JSON.stringify(colaboradoresAAE));
+      localStorage.setItem("admin_checklist_items", JSON.stringify(items));
+      if (!items.some((item) => item[1] === activeCategory)) activeCategory = items[0]?.[1] || "";
+      renderTrains();
+      renderTabs();
+      renderItems();
+      renderJourneys();
+      renderChecklistPanel();
+      refreshSelects();
+      renderAdmin();
+    }
+    function addAdminTrain(event) {
+      event.preventDefault();
+      const number = adminTrainNumber.value.trim();
+      if (!number) return;
+      trains.push([`trem-${number}`, `Trem ${number}`, number, "1 trem"]);
+      adminTrainNumber.value = "";
+      saveAdminConfig();
+    }
+    function updateAdminTrain(index, value) {
+      const number = value.trim();
+      if (!number) return;
+      trains[index] = [`trem-${number}`, `Trem ${number}`, number, "1 trem"];
+      saveAdminConfig();
+    }
+    function addAdminCollaborator(event) {
+      event.preventDefault();
+      const name = adminCollaboratorName.value.trim();
+      if (!name) return;
+      colaboradoresAAE.push(name);
+      colaboradoresAAE = [...new Set(colaboradoresAAE)].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      adminCollaboratorName.value = "";
+      saveAdminConfig();
+    }
+    function updateAdminCollaborator(index, value) {
+      colaboradoresAAE[index] = value;
+      saveAdminConfig();
+    }
+    function addAdminChecklistItem(event) {
+      event.preventDefault();
+      const code = adminItemCode.value.trim();
+      const category = adminItemCategory.value.trim();
+      const description = adminItemDescription.value.trim();
+      const resolution = adminItemResolution.value.trim();
+      if (!code || !category || !description) {
+        alert("Preencha código, local e item.");
+        return;
+      }
+      items.push([code, category, description, resolution]);
+      adminItemCode.value = "";
+      adminItemCategory.value = "";
+      adminItemDescription.value = "";
+      adminItemResolution.value = "";
+      saveAdminConfig();
+    }
+    function updateAdminChecklistItem(index, field, value) {
+      items[index][field] = value;
+      saveAdminConfig();
+    }
+    function renderAdmin() {
+      if (window.AccessControl?.canAdmin?.()) {
+        adminLoggedIn = true;
+        sessionStorage.setItem("admin_logged_in", "true");
+      }
+      adminLoginPanel.classList.toggle("hidden", adminLoggedIn);
+      adminContent.classList.toggle("hidden", !adminLoggedIn);
+      if (!adminLoggedIn) return;
+      document.getElementById("accessAdminPanel")?.remove();
+      const accessPanel = window.AccessControl?.renderAccessAdmin ? window.AccessControl.renderAccessAdmin() : "";
+      adminTrainList.innerHTML = trains.map((train, index) => `
+        <label><span>Trem</span><input value="${train[2]}" onchange="updateAdminTrain(${index}, this.value)"></label>
+      `).join("");
+      adminCollaboratorList.innerHTML = colaboradoresAAE.map((name, index) => `
+        <label><span>Colaborador</span><input value="${name}" onchange="updateAdminCollaborator(${index}, this.value)"></label>
+      `).join("");
+      adminChecklistList.innerHTML = items.map((item, index) => `
+        <article class="check">
+          <div class="formgrid">
+            <label><span>Código</span><input value="${item[0]}" onchange="updateAdminChecklistItem(${index},0,this.value)"></label>
+            <label><span>Local</span><input value="${item[1]}" onchange="updateAdminChecklistItem(${index},1,this.value)"></label>
+            <label style="grid-column:1/-1"><span>Item</span><input value="${item[2]}" onchange="updateAdminChecklistItem(${index},2,this.value)"></label>
+            <label style="grid-column:1/-1"><span>Resolução</span><input value="${item[3] || ""}" onchange="updateAdminChecklistItem(${index},3,this.value)"></label>
+          </div>
+        </article>
+      `).join("");
+      adminContent.insertAdjacentHTML("beforeend", accessPanel);
+    }
+    function refreshSelects() {
+      journeyName.innerHTML = colaboradoresAAE.map((name) => `<option>${name}</option>`).join("");
+      panelTrain.innerHTML = trains.map((train) => `<option value="${train[0]}">${train[1]} - ${train[2]}</option>`).join("");
+      historyTrain.innerHTML = `<option value="">Selecione um trem</option>` + trains.map((train) => `<option value="${train[0]}">${train[1]}</option>`).join("");
+    }
+    function updateJourney(key, field, value) {
+      let item = journeys.find((record) => record.key === key);
+      if (!item) {
+        const [name, place, date] = key.split("|");
+        const realName = colaboradoresAAE.find((candidate) => candidate.trim().toLowerCase() === name) || name;
+        item = { key, name: realName, place, date, entry: "", lunch: "", exit: "" };
+        journeys.unshift(item);
+      }
+      item[field] = value;
+      localStorage.setItem("journey_preview", JSON.stringify(journeys));
+    }
+    function statusText(status) {
+      return status === "OK" ? "Realizado" : status === "NOK" ? "NOK" : status === "NA" ? "N/A" : "Pendente";
+    }
+    function detailItemHtml(item, answer) {
+      const failure = answer.status === "NOK";
+      return `
+        <article class="check" style="${failure ? "border-color:#fecaca;background:#fef2f2" : ""}">
+          <div class="check-top">
+            <div>
+              <span class="code">${item[0]}</span><span class="cat">${item[1]}</span>
+              <h3>${item[2]}</h3>
+              <p class="muted">${item[3] || ""}</p>
+              ${answer.obs ? `<p><strong>Observação:</strong> ${answer.obs}</p>` : ""}
+            </div>
+            <strong style="color:${failure ? "#b91c1c" : "var(--blue)"}">${statusText(answer.status)}</strong>
+          </div>
+        </article>
+      `;
+    }
+    function renderChecklistHistory() {
+      const trainId = historyTrain.value || "";
+      historyDetail.classList.add("hidden");
+      historyList.classList.remove("hidden");
+      if (!trainId) {
+        historyList.innerHTML = '<div class="panel"><p class="muted">Selecione um trem para visualizar os checklists feitos.</p></div>';
+        return;
+      }
+      const list = checklistHistory.filter((record) => record.selectedTrain && record.selectedTrain[0] === trainId);
+      historyList.innerHTML = list.length ? list.map((record) => {
+        const rows = items.map((item) => ({ item, answer: record.answers?.[item[0]] || {} }));
+        const failures = rows.filter((row) => row.answer.status === "NOK").length;
+        const ok = rows.filter((row) => row.answer.status === "OK").length;
+        const na = rows.filter((row) => row.answer.status === "NA").length;
+        const pending = rows.filter((row) => !row.answer.status).length;
+        return `
+          <button class="panel" style="text-align:left;min-height:auto" onclick="openChecklistDetail('${record.id}')">
+            <div class="check-top">
+              <div>
+                <h3 style="color:var(--blue);margin:0">${record.selectedTrain?.[1] || "Trem"}</h3>
+                <p class="muted">${record.date || "--"} às ${record.time || "--"} | ${record.status || "Salvo"}</p>
+                <p><strong>Feito por:</strong> ${record.filledBy || "--"} | <strong>RE:</strong> ${record.re || "--"}</p>
+              </div>
+              <div style="text-align:right;font-weight:900;color:var(--blue)">OK ${ok}<br>NOK ${failures}<br>N/A ${na}<br>Pend. ${pending}</div>
+            </div>
+          </button>
+        `;
+      }).join("") : '<div class="panel"><p class="muted">Nenhum checklist salvo ainda.</p></div>';
+    }
+    function openChecklistDetail(recordId) {
+      const record = checklistHistory.find((item) => item.id === recordId);
+      if (!record) return;
+      const rows = items.map((item) => ({ item, answer: record.answers?.[item[0]] || {} }));
+      const failures = rows.filter((row) => row.answer.status === "NOK").length;
+      const ok = rows.filter((row) => row.answer.status === "OK").length;
+      const na = rows.filter((row) => row.answer.status === "NA").length;
+      const pending = rows.filter((row) => !row.answer.status).length;
+      historyList.classList.add("hidden");
+      historyDetail.classList.remove("hidden");
+      historyDetail.innerHTML = `
+        <div class="panel">
+          <div class="check-top">
+            <div>
+              <p class="muted" style="text-transform:uppercase;font-weight:900">Relatório gerencial</p>
+              <h2 style="color:var(--blue);margin:0">${record.selectedTrain?.[1] || "Trem"}</h2>
+              <p class="muted">${record.date || "--"} às ${record.time || "--"} | ${record.status || "Salvo"}</p>
+            </div>
+            <button class="primary" onclick="printChecklistPdf('${record.id}')">Imprimir PDF</button>
+          </div>
+          <div class="grid metrics" style="margin-top:14px">
+            <div class="metric"><span>Total</span><strong>${items.length}</strong></div>
+            <div class="metric"><span>OK</span><strong>${ok}</strong></div>
+            <div class="metric danger"><span>NOK</span><strong>${failures}</strong></div>
+            <div class="metric"><span>N/A</span><strong>${na}</strong></div>
+            <div class="metric"><span>Pend.</span><strong>${pending}</strong></div>
+          </div>
+          <div class="grid summary" style="margin-top:14px">
+            <div class="info"><span>Responsável</span><strong>${record.filledBy || "--"}</strong></div>
+            <div class="info"><span>RE</span><strong>${record.re || "--"}</strong></div>
+            <div class="info"><span>Função</span><strong>${record.role || "--"}</strong></div>
+            <div class="info"><span>Trem</span><strong>${record.selectedTrain?.[1] || "--"}</strong></div>
+          </div>
+          <h3 style="color:var(--blue)">Itens do checklist</h3>
+          ${rows.map(({ item, answer }) => detailItemHtml(item, answer)).join("")}
+          <div style="margin-top:18px;border-top:1px solid var(--line);padding-top:14px">
+            <strong style="color:var(--blue)">Assinatura do responsável</strong>
+            ${record.signature ? `<img src="${record.signature}" alt="Assinatura" style="display:block;margin-top:8px;max-width:360px;width:100%;height:120px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:white">` : '<p class="muted">Sem assinatura registrada.</p>'}
+          </div>
+          <button class="ghost" style="margin-top:14px" onclick="renderChecklistHistory()">Voltar para lista</button>
+        </div>
+      `;
+    }
+    function printChecklistPdf(recordId) {
+      const record = checklistHistory.find((item) => item.id === recordId);
+      if (!record) return;
+      const rows = items.map((item) => ({ item, answer: record.answers?.[item[0]] || {} }));
+      const failures = rows.filter((row) => row.answer.status === "NOK").length;
+      const ok = rows.filter((row) => row.answer.status === "OK").length;
+      const na = rows.filter((row) => row.answer.status === "NA").length;
+      const pending = rows.filter((row) => !row.answer.status).length;
+      const report = window.open("", "_blank");
+      if (!report) return;
+      report.document.write(`
+        <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório ${record.selectedTrain?.[1] || "Trem"}</title>
+        <style>
+          body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#172033;background:#fff}
+          main{padding:24px;max-width:980px;margin:auto}
+          header{background:#0b2344;color:white;padding:22px 24px;border-radius:8px}
+          h1{margin:0;font-size:28px} h2{color:#0b2344}
+          .muted{color:#64748b;font-weight:700}.grid{display:grid;gap:12px}.metrics{grid-template-columns:repeat(5,1fr);margin:18px 0}
+          .metric{border:1px solid #dbe3ef;border-radius:8px;padding:12px}.metric span{font-size:12px;color:#64748b;font-weight:900;text-transform:uppercase}.metric strong{display:block;color:#0b2344;font-size:26px}
+          .info{background:#f8fafc;border:1px solid #dbe3ef;border-radius:8px;padding:12px}.info span{display:block;font-size:11px;color:#64748b;font-weight:900;text-transform:uppercase}.info strong{color:#0b2344}
+          .summary{grid-template-columns:repeat(4,1fr);margin-bottom:18px}.item{border:1px solid #dbe3ef;border-radius:8px;padding:12px;margin-bottom:8px}.fail{background:#fef2f2;border-color:#fecaca}.code{font-weight:900;color:#0b2344}.status{float:right;font-weight:900}.signature{margin-top:22px;border-top:1px solid #dbe3ef;padding-top:14px}.signature img{max-width:360px;width:100%;height:120px;object-fit:contain;border:1px solid #dbe3ef;border-radius:8px}
+          @media print{button{display:none} main{padding:0} header{border-radius:0}}
+        </style></head><body><main>
+          <header><div>RELATÓRIO GERENCIAL DE CHECKLIST</div><h1>${record.selectedTrain?.[1] || "Trem"}</h1><p>${record.date || "--"} às ${record.time || "--"} | ${record.status || "Salvo"}</p></header>
+          <section class="grid metrics"><div class="metric"><span>Total</span><strong>${items.length}</strong></div><div class="metric"><span>OK</span><strong>${ok}</strong></div><div class="metric"><span>NOK</span><strong>${failures}</strong></div><div class="metric"><span>N/A</span><strong>${na}</strong></div><div class="metric"><span>Pendentes</span><strong>${pending}</strong></div></section>
+          <section class="grid summary"><div class="info"><span>Responsável</span><strong>${record.filledBy || "--"}</strong></div><div class="info"><span>RE</span><strong>${record.re || "--"}</strong></div><div class="info"><span>Função</span><strong>${record.role || "--"}</strong></div><div class="info"><span>Trem</span><strong>${record.selectedTrain?.[1] || "--"}</strong></div></section>
+          <h2>Itens verificados</h2>
+          ${rows.map(({ item, answer }) => `<div class="item ${answer.status === "NOK" ? "fail" : ""}"><span class="status">${statusText(answer.status)}</span><div class="code">${item[0]} - ${item[1]}</div><strong>${item[2]}</strong><p class="muted">${item[3] || ""}</p>${answer.obs ? `<p><strong>Observação:</strong> ${answer.obs}</p>` : ""}</div>`).join("")}
+          <div class="signature"><h2>Assinatura</h2><p><strong>${record.filledBy || "--"}</strong> | RE ${record.re || "--"}</p>${record.signature ? `<img src="${record.signature}" alt="Assinatura">` : "<p>Sem assinatura registrada.</p>"}</div>
+          <button onclick="window.print()" style="margin-top:20px;padding:12px 18px;border:0;border-radius:8px;background:#f58220;color:white;font-weight:900">Imprimir / salvar PDF</button>
+        </main></body></html>
+      `);
+      report.document.close();
+      report.focus();
+    }
+    journeyDate.value = new Date().toISOString().slice(0, 10);
+    refreshSelects();
+    journeyPlace.onchange = renderJourneys;
+    journeyDate.onchange = renderJourneys;
+    renderTrains();
+    renderJourneys();
+    renderChecklistPanel();
+  </script>
+  <script src="controle-acesso-trens.js"></script>
+  <script src="embarques-viagens-simples.js"></script>
+</body>
+</html>
