@@ -23,7 +23,8 @@
     body, button, input, textarea, select { overflow-wrap: anywhere; }
     header { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--line); }
     .top { max-width: 1180px; margin: 0 auto; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
-    .logo { height: 40px; width: 116px; object-fit: contain; }
+    .logo { height: 40px; width: 116px; display: grid; place-items: center; color: var(--blue); font-size: 22px; font-weight: 900; letter-spacing: -.5px; }
+    .logo em { color: var(--orange); font-style: normal; }
     .brand { flex: 1; min-width: 0; }
     .brand span { display: block; color: var(--orange); font-size: 13px; font-weight: 800; text-transform: uppercase; }
     .brand h1 { margin: 2px 0 0; color: var(--blue); font-size: clamp(20px, 3vw, 28px); }
@@ -176,7 +177,7 @@
   <div id="accessScreen" class="access-screen hidden"></div>
   <header>
     <div class="top">
-      <img class="logo" src="public-sge/logo-linha6uni.png" alt="Linha 6" />
+      <div class="logo" aria-label="Linha 6"><span>linha<em>uni</em></span></div>
       <div class="brand">
         <span>Controle</span>
         <h1>Embarque Trens</h1>
