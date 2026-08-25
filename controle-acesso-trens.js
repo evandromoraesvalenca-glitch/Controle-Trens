@@ -111,10 +111,9 @@
           <button type="button" class="${isRequest ? "active" : ""}" onclick="AccessControl.showLogin('request')">Solicitar acesso</button>
         </div>
         ${message ? `<div class="traffic-alert">${message}</div>` : ""}
-        <label><span>Nome</span><input name="name" required ${!isRequest ? 'value="Evandro Valença"' : ""}></label>
+        <label><span>Nome</span><input name="name" required></label>
         <label><span>Senha</span><input name="password" type="password" required></label>
         <button class="primary" style="width:100%;margin-top:12px">${isRequest ? "Enviar solicitação" : "Entrar"}</button>
-        <p class="muted" style="font-size:12px;margin-bottom:0">Primeiro acesso administrativo: nome <strong>Evandro Valença</strong> e senha <strong>admin</strong>.</p>
       </form>
     `;
   }
@@ -149,13 +148,7 @@
     const form = new FormData(event.target);
     const loginValue = String(form.get("name") || "").trim();
     const password = String(form.get("password") || "");
-    let user = loadUsers().find((item) => normalizeAccessName(item.login) === normalizeAccessName(loginValue) && item.password === password);
-    if (!user && normalizeAccessName(loginValue) === normalizeAccessName(defaultAdmin.login) && password === defaultAdmin.password) {
-      const users = loadUsers().filter((item) => item.id !== defaultAdmin.id && normalizeAccessName(item.login) !== "admin");
-      users.unshift({ ...defaultAdmin });
-      saveUsers(users);
-      user = users[0];
-    }
+    const user = loadUsers().find((item) => normalizeAccessName(item.login) === normalizeAccessName(loginValue) && item.password === password);
     if (!user) {
       const pending = loadRequests().find((item) => normalizeAccessName(item.login) === normalizeAccessName(loginValue) && item.password === password);
       if (pending) {
