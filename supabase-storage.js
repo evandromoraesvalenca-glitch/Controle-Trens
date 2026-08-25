@@ -5,6 +5,7 @@
     "admin_trains",
     "admin_colaboradores",
     "admin_checklist_items",
+    "admin_checklist_items_version",
     "checklist_trens_preview",
     "checklist_trens_history",
     "journey_preview",
@@ -53,6 +54,13 @@
     originalRemoveItem(key);
     removeKey(key).catch((error) => console.error("Falha ao remover no Supabase", error));
   };
+
+  async function saveKey(key, value) {
+    if (!managedKeys.has(key)) return false;
+    originalSetItem(key, value);
+    await pushKey(key, value);
+    return true;
+  }
 
   async function hydrate() {
     const { data, error } = await client
@@ -105,6 +113,7 @@
     enabled: true,
     client,
     refreshKeys,
+    saveKey,
     ready: hydrate().catch((error) => {
       console.error("Falha ao carregar dados do Supabase", error);
       return false;

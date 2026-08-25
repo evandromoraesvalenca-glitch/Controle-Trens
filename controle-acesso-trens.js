@@ -46,7 +46,9 @@
   }
 
   function saveUsers(users) {
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    const value = JSON.stringify(users);
+    localStorage.setItem(USERS_KEY, value);
+    return window.SupabaseSync?.saveKey ? window.SupabaseSync.saveKey(USERS_KEY, value) : Promise.resolve(true);
   }
 
   function loadRequests() {
@@ -54,7 +56,9 @@
   }
 
   function saveRequests(requests) {
-    localStorage.setItem(REQUESTS_KEY, JSON.stringify(requests));
+    const value = JSON.stringify(requests);
+    localStorage.setItem(REQUESTS_KEY, value);
+    return window.SupabaseSync?.saveKey ? window.SupabaseSync.saveKey(REQUESTS_KEY, value) : Promise.resolve(true);
   }
 
   async function refreshAccessData() {
@@ -217,8 +221,9 @@
     showApp();
   }
 
-  function requestAccess(event) {
+  async function requestAccess(event) {
     event.preventDefault();
+    await refreshAccessData();
     const form = new FormData(event.target);
     const request = {
       id: `req-${Date.now()}`,
@@ -235,8 +240,13 @@
       return;
     }
     requests.push(request);
-    saveRequests(requests);
-    showLogin("login", "Solicitação enviada. Aguarde aprovação da administração.");
+    try {
+      await saveRequests(requests);
+      showLogin("login", "Solicitação enviada. Aguarde aprovação da administração.");
+    } catch (error) {
+      console.error("Falha ao enviar solicitação", error);
+      showLogin("request", "Não foi possível enviar a solicitação ao banco de dados. Tente novamente.");
+    }
   }
 
   function logout() {
@@ -244,7 +254,8 @@
     showLogin("login");
   }
 
-  function approveRequest(id, role) {
+  async function approveRequest(id, role) {
+    await refreshAccessData();
     const requests = loadRequests();
     const request = requests.find((item) => item.id === id);
     if (!request) return;
@@ -257,13 +268,14 @@
       role,
       approved: true
     });
-    saveUsers(users);
-    saveRequests(requests.filter((item) => item.id !== id));
+    await saveUsers(users);
+    await saveRequests(requests.filter((item) => item.id !== id));
     if (window.renderAdmin) window.renderAdmin();
   }
 
-  function rejectRequest(id) {
-    saveRequests(loadRequests().filter((item) => item.id !== id));
+  async function rejectRequest(id) {
+    await refreshAccessData();
+    await saveRequests(loadRequests().filter((item) => item.id !== id));
     if (window.renderAdmin) window.renderAdmin();
   }
 
@@ -297,7 +309,8 @@
     `;
   }
 
-  function init() {
+  async function init() {
+    if (window.SupabaseSync?.ready) await window.SupabaseSync.ready;
     loadUsers();
     if (session()) showApp();
     else showLogin("login");
