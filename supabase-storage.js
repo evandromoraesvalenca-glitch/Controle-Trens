@@ -28,7 +28,7 @@
   const originalGetItem = localStorage.getItem.bind(localStorage);
   const originalRemoveItem = localStorage.removeItem.bind(localStorage);
   const restUrl = `${config.url.replace(/\/$/, "")}/rest/v1/app_kv`;
-  const client = window.supabase ? window.supabase.createClient(config.url, config.anonKey) : null;
+  const client = null;
   let hydrating = false;
 
   function describeError(prefix, error) {
@@ -175,6 +175,6 @@
       console.error("Falha ao carregar dados do Supabase", error);
       return false;
     }),
-    status: client ? "Supabase conectado" : "Supabase conectado via REST"
+    status: "Supabase conectado via REST"
   };
 })();
