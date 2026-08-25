@@ -157,6 +157,11 @@
       user = users[0];
     }
     if (!user) {
+      const pending = loadRequests().find((item) => normalizeAccessName(item.login) === normalizeAccessName(loginValue) && item.password === password);
+      if (pending) {
+        showLogin("login", "Seu cadastro já foi enviado e está aguardando aprovação do administrador.");
+        return;
+      }
       showLogin("login", "Nome ou senha inválidos.");
       return;
     }
@@ -254,7 +259,7 @@
     return `
       <div id="accessAdminPanel" class="panel" style="grid-column:1/-1">
         <h3 style="color:var(--blue);margin-top:0">Controle de acesso</h3>
-        <p class="muted">Aprove novos acessos como Liderança ou Operador. Operador pode preencher checklists e jornada, mas apenas visualiza Embarques e Viagens.</p>
+        <p class="muted">Aprovação liberada para o login administrativo Evandro Valença. Aprove novos acessos como Liderança ou Operador. Operador pode preencher checklists e jornada, mas apenas visualiza Embarques e Viagens.</p>
         <h4 style="color:var(--blue)">Solicitações pendentes</h4>
         ${requests.length ? requests.map((item) => `
           <div class="check">
