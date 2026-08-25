@@ -45,20 +45,22 @@
     return users;
   }
 
-  function saveUsers(users) {
+  function saveUsers(users, confirmRemote = false) {
     const value = JSON.stringify(users);
+    if (confirmRemote && window.SupabaseSync?.saveKey) return window.SupabaseSync.saveKey(USERS_KEY, value);
     localStorage.setItem(USERS_KEY, value);
-    return window.SupabaseSync?.saveKey ? window.SupabaseSync.saveKey(USERS_KEY, value) : Promise.resolve(true);
+    return Promise.resolve(true);
   }
 
   function loadRequests() {
     return JSON.parse(localStorage.getItem(REQUESTS_KEY) || "[]");
   }
 
-  function saveRequests(requests) {
+  function saveRequests(requests, confirmRemote = false) {
     const value = JSON.stringify(requests);
+    if (confirmRemote && window.SupabaseSync?.saveKey) return window.SupabaseSync.saveKey(REQUESTS_KEY, value);
     localStorage.setItem(REQUESTS_KEY, value);
-    return window.SupabaseSync?.saveKey ? window.SupabaseSync.saveKey(REQUESTS_KEY, value) : Promise.resolve(true);
+    return Promise.resolve(true);
   }
 
   async function refreshAccessData() {
@@ -241,7 +243,7 @@
     }
     requests.push(request);
     try {
-      await saveRequests(requests);
+      await saveRequests(requests, true);
       showLogin("login", "Solicitação enviada. Aguarde aprovação da administração.");
     } catch (error) {
       console.error("Falha ao enviar solicitação", error);
@@ -268,14 +270,14 @@
       role,
       approved: true
     });
-    await saveUsers(users);
-    await saveRequests(requests.filter((item) => item.id !== id));
+    await saveUsers(users, true);
+    await saveRequests(requests.filter((item) => item.id !== id), true);
     if (window.renderAdmin) window.renderAdmin();
   }
 
   async function rejectRequest(id) {
     await refreshAccessData();
-    await saveRequests(loadRequests().filter((item) => item.id !== id));
+    await saveRequests(loadRequests().filter((item) => item.id !== id), true);
     if (window.renderAdmin) window.renderAdmin();
   }
 
@@ -287,6 +289,7 @@
       <div id="accessAdminPanel" class="panel" style="grid-column:1/-1">
         <h3 style="color:var(--blue);margin-top:0">Controle de acesso</h3>
         <p class="muted">Aprovação liberada para o login administrativo Evandro Valença. Aprove novos acessos como Liderança ou Operador. Operador pode preencher checklists e jornada, mas apenas visualiza Embarques e Viagens.</p>
+        <p class="muted" style="font-size:12px"><strong>Banco de dados:</strong> ${window.SupabaseSync?.status || "Nao conectado"}</p>
         <h4 style="color:var(--blue)">Solicitações pendentes</h4>
         <p class="muted" style="font-size:12px">Atualizando solicitações do banco de dados automaticamente ao abrir este painel.</p>
         ${requests.length ? requests.map((item) => `

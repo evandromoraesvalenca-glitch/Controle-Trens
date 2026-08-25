@@ -15,34 +15,70 @@
     "admin_password"
   ]);
 
-  if (!enabled || !window.supabase) {
+  if (!enabled) {
     window.SupabaseSync = {
       enabled: false,
       ready: Promise.resolve(false),
-      status: "Configuração do Supabase pendente"
+      status: "Configuracao do Supabase pendente"
     };
     return;
   }
 
-  const client = window.supabase.createClient(config.url, config.anonKey);
+  const client = null;
+  const restUrl = `${config.url.replace(/\/$/, "")}/rest/v1/app_kv`;
+  const restHeaders = {
+    apikey: config.anonKey,
+    Authorization: `Bearer ${config.anonKey}`,
+    "Content-Type": "application/json"
+  };
   const originalSetItem = localStorage.setItem.bind(localStorage);
   const originalGetItem = localStorage.getItem.bind(localStorage);
   const originalRemoveItem = localStorage.removeItem.bind(localStorage);
   let hydrating = false;
 
+  async function requestWithTimeout(url, options = {}, timeoutMs = 9000) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async function pushKey(key, value) {
     if (!managedKeys.has(key) || hydrating) return;
-    await client.from("app_kv").upsert({
+    const payload = {
       app: "controle_embarque_trens",
       key,
       value,
       updated_at: new Date().toISOString()
-    }, { onConflict: "app,key" });
+    };
+    if (client) {
+      const { error } = await client.from("app_kv").upsert(payload, { onConflict: "app,key" });
+      if (error) throw error;
+      return;
+    }
+    const response = await requestWithTimeout(`${restUrl}?on_conflict=app,key`, {
+      method: "POST",
+      headers: { ...restHeaders, Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`Supabase REST save failed: ${response.status}`);
   }
 
   async function removeKey(key) {
     if (!managedKeys.has(key) || hydrating) return;
-    await client.from("app_kv").delete().eq("app", "controle_embarque_trens").eq("key", key);
+    if (client) {
+      const { error } = await client.from("app_kv").delete().eq("app", "controle_embarque_trens").eq("key", key);
+      if (error) throw error;
+      return;
+    }
+    const response = await requestWithTimeout(`${restUrl}?app=eq.controle_embarque_trens&key=eq.${encodeURIComponent(key)}`, {
+      method: "DELETE",
+      headers: restHeaders
+    });
+    if (!response.ok) throw new Error(`Supabase REST delete failed: ${response.status}`);
   }
 
   localStorage.setItem = function (key, value) {
@@ -57,45 +93,29 @@
 
   async function saveKey(key, value) {
     if (!managedKeys.has(key)) return false;
-    originalSetItem(key, value);
     await pushKey(key, value);
-    return true;
-  }
-
-  async function hydrate() {
-    const { data, error } = await client
-      .from("app_kv")
-      .select("key,value")
-      .eq("app", "controle_embarque_trens");
-    if (error) throw error;
-
-    hydrating = true;
-    let changed = false;
-    (data || []).forEach((row) => {
-      if (managedKeys.has(row.key) && originalGetItem(row.key) !== row.value) {
-        originalSetItem(row.key, row.value);
-        changed = true;
-      }
-    });
-    hydrating = false;
-
-    if (changed && !sessionStorage.getItem("supabase_hydrated_once")) {
-      sessionStorage.setItem("supabase_hydrated_once", "true");
-      location.reload();
-    }
+    originalSetItem(key, value);
     return true;
   }
 
   async function refreshKeys(keys) {
     const requestedKeys = (keys || []).filter((key) => managedKeys.has(key));
-    let query = client
-      .from("app_kv")
-      .select("key,value")
-      .eq("app", "controle_embarque_trens");
-    if (requestedKeys.length) query = query.in("key", requestedKeys);
-
-    const { data, error } = await query;
-    if (error) throw error;
+    let data;
+    if (client) {
+      let query = client
+        .from("app_kv")
+        .select("key,value")
+        .eq("app", "controle_embarque_trens");
+      if (requestedKeys.length) query = query.in("key", requestedKeys);
+      const result = await query;
+      if (result.error) throw result.error;
+      data = result.data;
+    } else {
+      const keyFilter = requestedKeys.length ? `&key=in.(${requestedKeys.map(encodeURIComponent).join(",")})` : "";
+      const response = await requestWithTimeout(`${restUrl}?select=key,value&app=eq.controle_embarque_trens${keyFilter}`, { headers: restHeaders });
+      if (!response.ok) throw new Error(`Supabase REST load failed: ${response.status}`);
+      data = await response.json();
+    }
 
     hydrating = true;
     let changed = false;
@@ -109,6 +129,15 @@
     return changed;
   }
 
+  async function hydrate() {
+    const changed = await refreshKeys();
+    if (changed && !sessionStorage.getItem("supabase_hydrated_once")) {
+      sessionStorage.setItem("supabase_hydrated_once", "true");
+      location.reload();
+    }
+    return true;
+  }
+
   window.SupabaseSync = {
     enabled: true,
     client,
@@ -118,6 +147,6 @@
       console.error("Falha ao carregar dados do Supabase", error);
       return false;
     }),
-    status: "Supabase conectado"
+    status: client ? "Supabase conectado" : "Supabase conectado via REST"
   };
 })();
