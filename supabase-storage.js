@@ -60,8 +60,8 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, value })
       });
-      if (!proxyResponse.ok) throw new Error(`Netlify KV save failed: ${proxyResponse.status}`);
-      return;
+      if (proxyResponse.ok) return;
+      console.warn(`Netlify KV save failed: ${proxyResponse.status}. Tentando Supabase direto.`);
     }
     if (client) {
       const { error } = await client.from("app_kv").upsert(payload, { onConflict: "app,key" });
@@ -80,8 +80,8 @@
     if (!managedKeys.has(key) || hydrating) return;
     if (location.protocol === "https:") {
       const proxyResponse = await requestWithTimeout(`${proxyUrl}?key=${encodeURIComponent(key)}`, { method: "DELETE" });
-      if (!proxyResponse.ok) throw new Error(`Netlify KV delete failed: ${proxyResponse.status}`);
-      return;
+      if (proxyResponse.ok) return;
+      console.warn(`Netlify KV delete failed: ${proxyResponse.status}. Tentando Supabase direto.`);
     }
     if (client) {
       const { error } = await client.from("app_kv").delete().eq("app", "controle_embarque_trens").eq("key", key);
@@ -118,10 +118,13 @@
     if (location.protocol === "https:") {
       const url = requestedKeys.length === 1 ? `${proxyUrl}?key=${encodeURIComponent(requestedKeys[0])}` : proxyUrl;
       const proxyResponse = await requestWithTimeout(url);
-      if (!proxyResponse.ok) throw new Error(`Netlify KV load failed: ${proxyResponse.status}`);
-      data = await proxyResponse.json();
-    } else
-    if (client) {
+      if (proxyResponse.ok) {
+        data = await proxyResponse.json();
+      } else {
+        console.warn(`Netlify KV load failed: ${proxyResponse.status}. Tentando Supabase direto.`);
+      }
+    }
+    if (!data && client) {
       let query = client
         .from("app_kv")
         .select("key,value")
@@ -130,7 +133,7 @@
       const result = await query;
       if (result.error) throw result.error;
       data = result.data;
-    } else {
+    } else if (!data) {
       const keyFilter = requestedKeys.length ? `&key=in.(${requestedKeys.map(encodeURIComponent).join(",")})` : "";
       const response = await requestWithTimeout(`${restUrl}?select=key,value&app=eq.controle_embarque_trens${keyFilter}`, { headers: restHeaders });
       if (!response.ok) throw new Error(`Supabase REST load failed: ${response.status}`);
