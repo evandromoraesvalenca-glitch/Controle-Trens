@@ -61,7 +61,7 @@
         body: JSON.stringify({ key, value })
       });
       if (proxyResponse.ok) return;
-      console.warn(`Netlify KV save failed: ${proxyResponse.status}. Tentando Supabase direto.`);
+      throw new Error(`Funcao Netlify /api/kv nao publicada ou indisponivel: ${proxyResponse.status}`);
     }
     if (client) {
       const { error } = await client.from("app_kv").upsert(payload, { onConflict: "app,key" });
@@ -81,7 +81,7 @@
     if (location.protocol === "https:") {
       const proxyResponse = await requestWithTimeout(`${proxyUrl}?key=${encodeURIComponent(key)}`, { method: "DELETE" });
       if (proxyResponse.ok) return;
-      console.warn(`Netlify KV delete failed: ${proxyResponse.status}. Tentando Supabase direto.`);
+      throw new Error(`Funcao Netlify /api/kv nao publicada ou indisponivel: ${proxyResponse.status}`);
     }
     if (client) {
       const { error } = await client.from("app_kv").delete().eq("app", "controle_embarque_trens").eq("key", key);
@@ -121,7 +121,7 @@
       if (proxyResponse.ok) {
         data = await proxyResponse.json();
       } else {
-        console.warn(`Netlify KV load failed: ${proxyResponse.status}. Tentando Supabase direto.`);
+        throw new Error(`Funcao Netlify /api/kv nao publicada ou indisponivel: ${proxyResponse.status}`);
       }
     }
     if (!data && client) {
