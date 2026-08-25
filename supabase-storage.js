@@ -78,9 +78,33 @@
     return true;
   }
 
+  async function refreshKeys(keys) {
+    const requestedKeys = (keys || []).filter((key) => managedKeys.has(key));
+    let query = client
+      .from("app_kv")
+      .select("key,value")
+      .eq("app", "controle_embarque_trens");
+    if (requestedKeys.length) query = query.in("key", requestedKeys);
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    hydrating = true;
+    let changed = false;
+    (data || []).forEach((row) => {
+      if (managedKeys.has(row.key) && originalGetItem(row.key) !== row.value) {
+        originalSetItem(row.key, row.value);
+        changed = true;
+      }
+    });
+    hydrating = false;
+    return changed;
+  }
+
   window.SupabaseSync = {
     enabled: true,
     client,
+    refreshKeys,
     ready: hydrate().catch((error) => {
       console.error("Falha ao carregar dados do Supabase", error);
       return false;

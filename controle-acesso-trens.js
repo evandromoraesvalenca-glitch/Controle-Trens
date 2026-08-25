@@ -11,6 +11,7 @@
     approved: true,
     mustChangePassword: true
   };
+  let accessRefreshInProgress = false;
 
   function normalizeAccessName(value) {
     return String(value || "")
@@ -54,6 +55,26 @@
 
   function saveRequests(requests) {
     localStorage.setItem(REQUESTS_KEY, JSON.stringify(requests));
+  }
+
+  async function refreshAccessData() {
+    if (!window.SupabaseSync?.refreshKeys || accessRefreshInProgress) return false;
+    accessRefreshInProgress = true;
+    try {
+      await window.SupabaseSync.ready;
+      return await window.SupabaseSync.refreshKeys([USERS_KEY, REQUESTS_KEY]);
+    } catch (error) {
+      console.error("Falha ao atualizar solicitações de acesso", error);
+      return false;
+    } finally {
+      accessRefreshInProgress = false;
+    }
+  }
+
+  function refreshAccessAdminPanel() {
+    refreshAccessData().then((changed) => {
+      if (changed && window.renderAdmin) window.renderAdmin();
+    });
   }
 
   function session() {
@@ -247,6 +268,7 @@
   }
 
   function renderAccessAdmin() {
+    refreshAccessAdminPanel();
     const requests = loadRequests();
     const users = loadUsers();
     return `
@@ -254,6 +276,7 @@
         <h3 style="color:var(--blue);margin-top:0">Controle de acesso</h3>
         <p class="muted">Aprovação liberada para o login administrativo Evandro Valença. Aprove novos acessos como Liderança ou Operador. Operador pode preencher checklists e jornada, mas apenas visualiza Embarques e Viagens.</p>
         <h4 style="color:var(--blue)">Solicitações pendentes</h4>
+        <p class="muted" style="font-size:12px">Atualizando solicitações do banco de dados automaticamente ao abrir este painel.</p>
         ${requests.length ? requests.map((item) => `
           <div class="check">
             <div class="check-top">
