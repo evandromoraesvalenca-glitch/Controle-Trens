@@ -28,9 +28,9 @@
   const restUrl = `${config.url.replace(/\/$/, "")}/rest/v1/app_kv`;
   const restHeaders = {
     apikey: config.anonKey,
-    Authorization: `Bearer ${config.anonKey}`,
     "Content-Type": "application/json"
   };
+  const proxyUrl = "/api/kv";
   const originalSetItem = localStorage.setItem.bind(localStorage);
   const originalGetItem = localStorage.getItem.bind(localStorage);
   const originalRemoveItem = localStorage.removeItem.bind(localStorage);
@@ -54,6 +54,15 @@
       value,
       updated_at: new Date().toISOString()
     };
+    if (location.protocol === "https:") {
+      const proxyResponse = await requestWithTimeout(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value })
+      });
+      if (!proxyResponse.ok) throw new Error(`Netlify KV save failed: ${proxyResponse.status}`);
+      return;
+    }
     if (client) {
       const { error } = await client.from("app_kv").upsert(payload, { onConflict: "app,key" });
       if (error) throw error;
@@ -69,6 +78,11 @@
 
   async function removeKey(key) {
     if (!managedKeys.has(key) || hydrating) return;
+    if (location.protocol === "https:") {
+      const proxyResponse = await requestWithTimeout(`${proxyUrl}?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+      if (!proxyResponse.ok) throw new Error(`Netlify KV delete failed: ${proxyResponse.status}`);
+      return;
+    }
     if (client) {
       const { error } = await client.from("app_kv").delete().eq("app", "controle_embarque_trens").eq("key", key);
       if (error) throw error;
@@ -101,6 +115,12 @@
   async function refreshKeys(keys) {
     const requestedKeys = (keys || []).filter((key) => managedKeys.has(key));
     let data;
+    if (location.protocol === "https:") {
+      const url = requestedKeys.length === 1 ? `${proxyUrl}?key=${encodeURIComponent(requestedKeys[0])}` : proxyUrl;
+      const proxyResponse = await requestWithTimeout(url);
+      if (!proxyResponse.ok) throw new Error(`Netlify KV load failed: ${proxyResponse.status}`);
+      data = await proxyResponse.json();
+    } else
     if (client) {
       let query = client
         .from("app_kv")

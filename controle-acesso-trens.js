@@ -247,7 +247,7 @@
       showLogin("login", "Solicitação enviada. Aguarde aprovação da administração.");
     } catch (error) {
       console.error("Falha ao enviar solicitação", error);
-      showLogin("request", "Não foi possível enviar a solicitação ao banco de dados. Tente novamente.");
+      showLogin("request", `Não foi possível enviar a solicitação ao banco de dados. Erro: ${error?.message || error}`);
     }
   }
 
