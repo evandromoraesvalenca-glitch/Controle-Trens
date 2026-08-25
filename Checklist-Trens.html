@@ -107,7 +107,7 @@
     .readonly-lock button:not(.tab):not(.main-tabs button):not(.sub-tabs button):not(#moduleChecklists):not(#moduleJourney):not(#moduleTrips) { pointer-events: none; opacity: .55; }
     .readonly-lock input, .readonly-lock textarea, .readonly-lock select { pointer-events: none; background: #f8fafc !important; color: #475569; }
     .readonly-lock .no-print button, .readonly-lock .primary, .readonly-lock .secondary, .readonly-lock .ghost { pointer-events: none; opacity: .55; }
-    .readonly-lock #historyTrain, .readonly-lock #panelTrain { pointer-events: auto; background: white !important; }
+    .readonly-lock #historyTrain, .readonly-lock #historyUser, .readonly-lock #panelTrain { pointer-events: auto; background: white !important; }
     .metrics { grid-template-columns: repeat(5, 1fr); }
     .metric { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 14px; }
     .metric span { color: var(--muted); font-size: 13px; font-weight: 800; }
@@ -297,6 +297,7 @@
       <div class="panel">
         <div class="formgrid">
           <label><span>Filtrar por trem</span><select id="historyTrain" onchange="renderChecklistHistory()" style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"></select></label>
+          <label><span>Filtrar por colaborador/login</span><select id="historyUser" onchange="renderChecklistHistory()" style="width:100%;height:44px;border:1px solid #cbd5e1;border-radius:8px;padding:0 12px;font:inherit"></select></label>
           <label><span>Modo</span><button type="button" class="secondary" style="width:100%" onclick="renderChecklistHistory()">Atualizar histórico</button></label>
         </div>
       </div>
@@ -415,36 +416,65 @@
       ["trem-613", "Trem 613", "613", "1 trem"],
       ["trem-614", "Trem 614", "614", "1 trem"]
     ];
-    let items = JSON.parse(localStorage.getItem("admin_checklist_items") || "null") || [
-      ["INT01", "Interno", "Iluminacao dos Carros", "Resetar / Subir os disjuntores"],
-      ["INT02", "Interno", "Funcionamento do Ar Condicionado", "Resetar / Subir os disjuntores"],
-      ["INT03", "Interno", "Verificacao da Limpeza", "Caso necessario, comunicar o CCO para acionar a equipe de limpeza"],
-      ["INT04", "Interno", "Vistoria das Cameras (PAPIS)", "Resetar / Subir os disjuntores de Visores"],
-      ["INT05", "Interno", "Verificacao do Sistema de Som (PAPIS)", "Resetar / Subir os disjuntores de Comunicacao"],
-      ["INT06", "Interno", "Verificacao da funcionalidade do TCMS", "Resetar / Subir os disjuntores de Visores"],
-      ["INT07", "Interno", "Verificacao do funcionamento dos Mapas de Linha", "Resetar / Subir os disjuntores de Comunicacao"],
-      ["INT08", "Interno", "Verificacao de Sancas", "Fechar sancas / Caso sem sucesso, comunicar CCO para acionar MRO"],
-      ["INT09", "Interno", "Acrilicos dos Dispositivos de Emergencia e Extintores", "Se tiver sem acrilico, comunicar CCO para acionar MRO"],
-      ["INT10", "Interno", "Teste de Radio e Intercom", "Resetar / Subir os disjuntores de Radio"],
-      ["INT11", "Interno", "Armarios Fechados e Travados", "Fechar Armarios / Caso sem sucesso, comunicar CCO para acionar MRO"],
-      ["INT12", "Interno", "Condicoes dos Pega-Maos", "Caso solto ou avariado, comunicar CCO para acionar MRO"],
-      ["INT13", "Interno", "Verificacao da Integridade dos Gangway", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["INT14", "Interno", "Verificacao da Isolacao Cabine / Salao (Se houver)", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["INT15", "Interno", "Verificacao da Integridade Fisica (Vandalismo)", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["CAB01", "Cabine", "Integridade dos lacres e protecoes das derivacoes", "Caso sem os lacres, verificar se nao ha nada em bypass"],
-      ["CAB02", "Cabine", "Verificar se existem dispositivos em bypass", "Reestabelecer e verificar se foi normalizado e ha condicoes de circulacao"],
-      ["CAB03", "Cabine", "Testes de Movimentacao (Frente / Re / Reboque)", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["CAB04", "Cabine", "Testes de Dispositivos de Emergencia (Botao Seta / Manipulo)", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["CAB05", "Cabine", "Verificacao e Realizacao do Teste obrigatorio de freios", "Confirmar realizacao do teste obrigatorio de freios"],
-      ["CAB06", "Cabine", "Teste de lampadas do painel", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["CAB07", "Cabine", "Testes de aberturas e fechamentos de portas (2 ciclos)", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["EXT01", "Externo", "Tampas Externas / Subestrado", "Fechar e Travar / Sem sucesso, comunicar CCO para acionar MRO"],
-      ["EXT02", "Externo", "Calcos (Se houver)", "Retirar calcos"],
-      ["EXT03", "Externo", "Verificacao de Torneiras e Posicionamento", "Normalizar torneiras e verificar se ha condicoes operacionais"],
-      ["EXT04", "Externo", "Funcionamento das Luzes de posicao", "Tirar / Pegar comando e verificar funcionamento das luzes"],
-      ["EXT05", "Externo", "Verificacao de Numeracao do trem (Laterais e Frontal)", "Caso avariado, comunicar CCO para acionar MRO"],
-      ["EXT06", "Externo", "Integridade Fisica, funcionalidade das portas e Visual do Trem", "Vandalismo ou anormalidades, comunicar CCO para acionar MRO"]
+    const CHECKLIST_ITEMS_VERSION = "TDV-CLU2-800-2026-V01.00";
+    const defaultChecklistItems = [
+      ["COP01", "Condições operacionais", "Posição normal dos seletores by-pass", "Verificar no console"],
+      ["COP02", "Condições operacionais", "Lacres instalados nos by-pass", "Verificar no console"],
+      ["COP03", "Condições operacionais", "Telas operacionais (PAPIS, TCMS)", "Verificar funcionamento das telas"],
+      ["COP04", "Condições operacionais", "Sistema de incêndio", "Verificar status no TCMS"],
+      ["COP05", "Condições operacionais", "Sistema CVS", "Verificar status no TCMS"],
+      ["COP06", "Condições operacionais", "Contatoras de tração HSCB", "Verificar status no TCMS"],
+      ["COP07", "Condições operacionais", "Freio de serviço", "Caso tenha freio isolado, informar imediatamente o CCO"],
+      ["COP08", "Condições operacionais", "Freio de emergência", "Verificar status no TCMS"],
+      ["COP09", "Condições operacionais", "Ar condicionado", "Verificar status no TCMS"],
+      ["COP10", "Condições operacionais", "Portas operacionais (status)", "Verificar status no TCMS"],
+      ["COP11", "Condições operacionais", "Pantógrafo", "Verificar status no TCMS"],
+      ["COP12", "Condições operacionais", "Tensão de linha", "Verificar C1 e C6"],
+      ["COP13", "Condições operacionais", "Pressão no encanamento principal", "Verificar C1 e C6"],
+      ["COP14", "Condições operacionais", "Bateria operacional", "Verificar status no TCMS"],
+      ["INT01", "Interna", "Portas (integridade e limpeza)", "Avaliar nos carros aplicáveis"],
+      ["INT02", "Interna", "Ausência de ruídos e odores anormais", "Avaliar nos carros aplicáveis"],
+      ["INT03", "Interna", "Acrílicos dos extintores, intercomunicadores e botões socos instalados", "Avaliar nos carros aplicáveis"],
+      ["INT04", "Interna", "Armários e compartimentos internos fechados", "Avaliar nos carros aplicáveis"],
+      ["INT05", "Interna", "Gangway (integridade e limpeza)", "Avaliar nos carros aplicáveis"],
+      ["INT06", "Interna", "Iluminação do salão", "Avaliar nos carros aplicáveis"],
+      ["INT07", "Interna", "Bancos de passageiros, pega-mãos e janelas (integridade e limpeza)", "Avaliar nos carros aplicáveis"],
+      ["INT08", "Interna", "Comunicação visual (adesivos, mapa de linha, etc.)", "Avaliar nos carros aplicáveis"],
+      ["INT09", "Interna", "Piso, teto e lateral", "Avaliar nos carros aplicáveis"],
+      ["INT10", "Interna", "Limpeza interna", "Avaliar nos carros aplicáveis"],
+      ["EXT01", "Externa", "Luzes de sentido/cauda", "Verificar funcionamento"],
+      ["EXT02", "Externa", "Ausência de ruídos e odores anormais", "Avaliar na inspeção externa"],
+      ["EXT03", "Externa", "Gabarito externo para movimentação segura", "Confirmar ausência de obstruções"],
+      ["EXT04", "Externa", "Torneiras de ar na posição normal (encanamento principal)", "Verificar posição normal"],
+      ["EXT05", "Externa", "Torneira de isolamento da porção elétrica do engate OPEN (isolada)", "Verificar posição"],
+      ["EXT06", "Externa", "Cabos e mangueiras entre carros (integridade)", "Verificar integridade"],
+      ["EXT07", "Externa", "Vazamento de ar", "Verificar ausência de vazamentos"],
+      ["EXT08", "Externa", "Vandalismo / limpeza", "Avaliar condição externa"],
+      ["EXT09", "Externa", "Compartimentos embaixo do trem fechados", "Verificar fechamento"],
+      ["EXT10", "Externa", "Calços de segurança removidos", "Freios não devem estar isolados"],
+      ["TES01", "Testes estáticos", "Funcionamento do rádio portátil", "Realizar teste"],
+      ["TES02", "Testes estáticos", "Luzes do console", "Realizar teste"],
+      ["TES03", "Testes estáticos", "Funcionamento da buzina", "Realizar teste"],
+      ["TES04", "Testes estáticos", "Emissão de PA ao vivo", "Realizar teste"],
+      ["TES05", "Testes estáticos", "Emissão de PA pré-gravado", "Realizar teste"],
+      ["TES06", "Testes estáticos", "Acionamento do botão de freio de emergência no console", "Verificar status no TCMS"],
+      ["TES07", "Testes estáticos", "Acionamento do botão de freio de estacionamento no console", "Verificar status no TCMS"],
+      ["TES08", "Testes estáticos", "Abertura de portas", "Enviar PA antes de iniciar o teste"],
+      ["TES09", "Testes estáticos", "Abertura/fechamento de portas dos dois lados (3 vezes)", "Realizar procedimento completo"],
+      ["TES10", "Testes estáticos", "Status das portas no TCMS", "Verificar status no TCMS"],
+      ["TES11", "Testes estáticos", "Aviso sonoro de portas", "Verificar aviso sonoro"],
+      ["TES12", "Testes estáticos", "Abertura de porta dos dois lados sem utilizar o seletor de lado de portas", "OK = portas não abriram; NOK = houve abertura"],
+      ["TES13", "Testes estáticos", "Lacre no botão de abertura de portas do lado oposto da operação", "Colocar lacre"],
+      ["DIN01", "Testes dinâmicos", "Tração (modo frente e ré)", "Modo frente diferente de modo reboque/lavagem"],
+      ["DIN02", "Testes dinâmicos", "Frenagem pelo manípulo", "Antes do teste: emitir PA, verificar segurança e fechar portas"],
+      ["DIN03", "Testes dinâmicos", "Frenagem pelo botão de emergência", "Antes do teste: emitir PA, verificar segurança e fechar portas"]
     ];
+    let items = JSON.parse(localStorage.getItem("admin_checklist_items") || "null") || defaultChecklistItems;
+    if (localStorage.getItem("admin_checklist_items_version") !== CHECKLIST_ITEMS_VERSION) {
+      items = defaultChecklistItems;
+      localStorage.setItem("admin_checklist_items", JSON.stringify(items));
+      localStorage.setItem("admin_checklist_items_version", CHECKLIST_ITEMS_VERSION);
+    }
     let selectedTrain = trains[0];
     let activeCategory = items[0][1];
     const answers = {};
@@ -546,7 +576,10 @@
       inspectionSection.classList.add('hidden');
       summarySection.classList.add('hidden');
       if (isPanel) renderChecklistPanel();
-      if (isHistory) renderChecklistHistory();
+      if (isHistory) {
+        refreshSelects();
+        renderChecklistHistory();
+      }
       if (isAdmin) renderAdmin();
     }
     function openAdmin() {
@@ -656,6 +689,7 @@
         return;
       }
       const signatureData = signature.toDataURL("image/png");
+      const accessUser = window.AccessControl?.currentUser ? window.AccessControl.currentUser() : null;
       const record = {
         id: `${Date.now()}-${selectedTrain[0]}`,
         selectedTrain,
@@ -664,6 +698,9 @@
         date: today(),
         time: now(),
         filledBy: fillName.value.trim(),
+        accessLogin: accessUser?.login || fillName.value.trim(),
+        accessUserName: accessUser?.name || fillName.value.trim(),
+        accessUserRole: accessUser?.role || "",
         re: fillRe.value.trim(),
         role: fillRole.value.trim(),
         signature: signatureData
@@ -936,7 +973,12 @@
     function refreshSelects() {
       journeyName.innerHTML = colaboradoresAAE.map((name) => `<option>${name}</option>`).join("");
       panelTrain.innerHTML = trains.map((train) => `<option value="${train[0]}">${train[1]} - ${train[2]}</option>`).join("");
-      historyTrain.innerHTML = `<option value="">Selecione um trem</option>` + trains.map((train) => `<option value="${train[0]}">${train[1]}</option>`).join("");
+      historyTrain.innerHTML = `<option value="">Todos os trens</option>` + trains.map((train) => `<option value="${train[0]}">${train[1]}</option>`).join("");
+      const historyUserSelect = document.getElementById("historyUser");
+      if (historyUserSelect) {
+        const users = [...new Set(checklistHistory.map((record) => record.accessLogin || record.accessUserName || record.filledBy).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        historyUserSelect.innerHTML = `<option value="">Todos os colaboradores</option>` + users.map((name) => `<option value="${name}">${name}</option>`).join("");
+      }
     }
     function updateJourney(key, field, value) {
       let item = journeys.find((record) => record.key === key);
@@ -970,13 +1012,15 @@
     }
     function renderChecklistHistory() {
       const trainId = historyTrain.value || "";
+      const userFilter = document.getElementById("historyUser")?.value || "";
       historyDetail.classList.add("hidden");
       historyList.classList.remove("hidden");
-      if (!trainId) {
-        historyList.innerHTML = '<div class="panel"><p class="muted">Selecione um trem para visualizar os checklists feitos.</p></div>';
-        return;
-      }
-      const list = checklistHistory.filter((record) => record.selectedTrain && record.selectedTrain[0] === trainId);
+      const list = checklistHistory.filter((record) => {
+        const trainMatch = !trainId || (record.selectedTrain && record.selectedTrain[0] === trainId);
+        const recordUser = record.accessLogin || record.accessUserName || record.filledBy || "";
+        const userMatch = !userFilter || recordUser === userFilter;
+        return trainMatch && userMatch;
+      });
       historyList.innerHTML = list.length ? list.map((record) => {
         const rows = items.map((item) => ({ item, answer: record.answers?.[item[0]] || {} }));
         const failures = rows.filter((row) => row.answer.status === "NOK").length;
@@ -989,7 +1033,7 @@
               <div>
                 <h3 style="color:var(--blue);margin:0">${record.selectedTrain?.[1] || "Trem"}</h3>
                 <p class="muted">${record.date || "--"} às ${record.time || "--"} | ${record.status || "Salvo"}</p>
-                <p><strong>Feito por:</strong> ${record.filledBy || "--"} | <strong>RE:</strong> ${record.re || "--"}</p>
+                <p><strong>Feito por:</strong> ${record.filledBy || "--"} | <strong>Login:</strong> ${record.accessLogin || record.filledBy || "--"} | <strong>RE:</strong> ${record.re || "--"}</p>
               </div>
               <div style="text-align:right;font-weight:900;color:var(--blue)">OK ${ok}<br>NOK ${failures}<br>N/A ${na}<br>Pend. ${pending}</div>
             </div>
